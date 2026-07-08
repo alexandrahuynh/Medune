@@ -1,0 +1,178 @@
+/* ===== Medune - Pharma Theme ===== */
+/* Teal color palette taken from the Figma wireframe. */
+:root {
+  --teal: #3fbfae;
+  --teal-dark: #2ba392;
+  --teal-light: #e6f7f4;
+  --card-bg: #ffffff;
+  --field-border: #3fbfae;
+  --text-dark: #1f2933;
+  --text-muted: #6b7280;
+  --error: #d64545;
+}
+
+/* Center the auth cards on a soft teal background. */
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--teal-light);
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+/* The white rounded box that holds each form. */
+.card {
+  width: 100%;
+  max-width: 640px;
+  background: var(--card-bg);
+  border: 2px solid var(--teal);
+  border-radius: 26px;
+  padding: 56px 52px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  box-shadow: 0 6px 18px rgba(63, 191, 174, 0.15);
+}
+
+/* "MEDUNE" logo text. */
+.brand {
+  margin: 0 0 10px;
+  text-align: center;
+  color: var(--teal);
+  font-size: 54px;
+  letter-spacing: 3px;
+}
+
+/* "Create Account" heading on the signup page. */
+.section-title {
+  margin: 0 0 8px;
+  color: var(--teal-dark);
+  font-size: 36px;
+}
+
+/* Rounded text inputs with a teal outline. */
+.input {
+  width: 100%;
+  padding: 18px 20px;
+  border: 2px solid var(--field-border);
+  border-radius: 12px;
+  font-size: 18px;
+  color: var(--text-dark);
+  box-sizing: border-box;
+  outline: none;
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+  text-align: left;
+}
+
+.input:focus {
+  border-color: var(--teal-dark);
+}
+
+/* Wrapper so the Show/Hide button can sit inside the password field. */
+.password-field {
+  position: relative;
+  width: 100%;
+}
+
+/* Leave room on the right so the text doesn't run under the button. */
+.password-field .input {
+  padding-right: 64px;
+}
+
+/* Small "Show" / "Hide" text button inside the password field. */
+.show-btn {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--teal-dark);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px;
+}
+
+/* Filled teal button. */
+.btn {
+  width: 100%;
+  padding: 18px 20px;
+  margin-top: 8px;
+  background: var(--teal);
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  font-size: 20px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn:hover {
+  background: var(--teal-dark);
+}
+
+.btn-small {
+  width: auto;
+  padding: 8px 16px;
+  font-size: 14px;
+}
+
+/* Small link line under the form ("Create Account" / "Log In"). */
+.switch-text {
+  text-align: center;
+  font-size: 16px;
+  color: var(--text-muted);
+}
+
+.switch-text a {
+  color: var(--teal-dark);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.switch-text a:hover {
+  text-decoration: underline;
+}
+
+/* Red validation / error message. */
+.error {
+  margin: 0;
+  padding: 10px 12px;
+  background: #fdecec;
+  border: 1px solid var(--error);
+  border-radius: 8px;
+  color: var(--error);
+  font-size: 14px;
+  text-align: center;
+}
+
+/* ===== Dashboard ===== */
+.dashboard {
+  min-height: 100vh;
+  background: var(--teal-light);
+}
+
+.dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: #ffffff;
+  border-bottom: 2px solid var(--teal);
+}
+
+.dashboard-header .brand {
+  font-size: 24px;
+}
+
+.dashboard-body {
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--text-dark);
+}
