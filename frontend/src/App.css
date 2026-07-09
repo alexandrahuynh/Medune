@@ -9,6 +9,7 @@
   --text-dark: #1f2933;
   --text-muted: #6b7280;
   --error: #d64545;
+  --shadow: rgba(63, 191, 174, 0.15);
 }
 
 /* Center the auth cards on a soft teal background. */
@@ -33,7 +34,52 @@
   display: flex;
   flex-direction: column;
   gap: 22px;
-  box-shadow: 0 6px 18px rgba(63, 191, 174, 0.15);
+  box-shadow: 0 6px 18px var(--shadow);
+}
+
+.profile_page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--teal-light);
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.card_data_container {
+  width: 100%;
+  background: var(--card-bg);
+  border: 2px solid var(--teal);
+  border-radius: 26px;
+  padding: 56px 52px;
+  align-items: center;
+  justify-content: center;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  box-shadow: 0 6px 18px var(--shadow);
+}
+
+.card_data {
+  width: 100%;
+  background: var(--card-bg);
+  border: 2px solid var(--teal);
+  border-radius: 26px;
+  padding: 20px 20px;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  box-shadow: 0 6px 18px var(--shadow);
+  line-height: 0px;
+}
+
+.card_header {
+  color: var(--teal-dark);
+}
+
+.card_timestamp {
+  color: var(--teal-dark);
+  font-size: 12px;
 }
 
 /* "MEDUNE" logo text. */
