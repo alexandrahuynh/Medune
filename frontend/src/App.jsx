@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
+import Data_Entry from "./pages/Data_Entry";
 import { getCurrentUser } from "./utils/auth";
 import "./App.css";
 
@@ -18,6 +19,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/data_entry" element={<Data_Entry />} />
         <Route
           path="/dashboard"
           element={

@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { getCurrentUser, logOut } from "../utils/auth";
+import Header from "./Header";
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -8,8 +9,12 @@ function Dashboard() {
   const user = getCurrentUser();
 
   function handleLogout() {
-    logOut();
-    navigate("/"); // back to the login page
+        logOut();
+        navigate("/"); // back to the login page
+    }
+
+  function handleDataEntry() {
+    navigate("/data_entry");
   }
 
   // Array stores PGx data as strings-- once we integrate with the backend we'll push data in here iteratively but for now it just has static junk data
@@ -19,7 +24,7 @@ function Dashboard() {
     ["ENTRY 3", "7/9/2026", "Manual Entry", "*2/*2", "Poor Metabolizer"]
   ];
 
-  // Takes a PGx data point and formats it into a card
+  // Takes a set of strings representing a PGx data point and formats it into a card
   function DisplayDataCard(geneName, timestamp, source, genotype, phenotype) {
     return (
       <div className="card_data">
@@ -41,19 +46,26 @@ function Dashboard() {
 
   return (
     <div className="dashboard">
-      <header className="dashboard-header">
-        <h1 className="brand">MEDUNE</h1>
-        <button className="btn btn-small" type="button" onClick={handleLogout}>
-          Log Out
-        </button>
-      </header>
-
+      {Header()}
       <main className="dashboard-body">
         <h2>Welcome, {user ? user.firstName : "Patient"}</h2>
-        <p>This is your dashboard. Content coming soon.</p>
+        <form>
+          <input
+            className="search_bar"
+            type="text"
+            placeholder="Search Medication Database"
+            />
+        </form>
           <div className="profile_page">
             <div className="card_data_container">
-              <h2>Logged PGx Data</h2>
+              <header className="header_with_button">
+                <h2>
+                  Logged PGx Data
+                </h2>
+                <button className="btn btn-small" type="button" onClick={handleDataEntry}>
+                    Enter New Data
+                </button>
+              </header>
               {DisplayDataCardList()}
             </div>
           </div>
