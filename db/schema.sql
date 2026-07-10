@@ -40,6 +40,25 @@ CREATE TABLE IF NOT EXISTS medications (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- added 7/9
+-- memory for patient medication
+CREATE TABLE IF NOT EXISTS patient_medications (
+
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_id uuid NOT NULL REFERENCES patients(id) on DELETE CASCADE,
+  medication_id uuid NOT NULL REFERENCES medications(id) on DELETE RESTRICT,
+  status text NOT NULL DEFAULT 'active' CHECK (
+    status IN ('active', 'past', 'considering')
+  ),
+  notes text,
+  started_at date,
+  stopped_at date,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT uq_patient_medication UNIQUE (patient_id, medication_id)
+
+);
+
 CREATE TABLE IF NOT EXISTS drug_gene_rules (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   medication_id uuid NOT NULL REFERENCES medications(id) ON DELETE RESTRICT,
