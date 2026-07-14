@@ -1,0 +1,18 @@
+# Applies to the root build context (Dockerfile.pipeline).
+# The backend/ and frontend/ images use their own contexts and .dockerignore files.
+.git
+.gitignore
+**/node_modules
+**/.env
+**/.env.*
+backend
+frontend
+db
+**/__pycache__
+*.pyc
+*.log
+.venv
+.postgres-data
+data/raw/*
+data/normalized/*
+data/review/*

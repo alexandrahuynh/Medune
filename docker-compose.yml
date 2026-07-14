@@ -1,0 +1,74 @@
+# Medune local development stack.
+#
+# Usage:
+#   docker compose up --build                              # db + backend + frontend
+#   docker compose --profile pipeline run --rm pipeline    # seed MVP medication data
+#   docker compose exec db psql -U medune -d medune        # inspect the database
+#
+# Ports are published to 127.0.0.1 only, so nothing is exposed to your LAN.
+# Override the DB credentials/name by copying .env.example to .env.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-medune}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-medune}
+      POSTGRES_DB: ${POSTGRES_DB:-medune}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Applied once, on first boot against an empty data volume.
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-medune} -d ${POSTGRES_DB:-medune}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-medune}:${POSTGRES_PASSWORD:-medune}@db:5432/${POSTGRES_DB:-medune}
+      HOST: 0.0.0.0
+      PORT: 4000
+      FRONTEND_ORIGIN: http://localhost:5173
+    # Bound to loopback on the host: reachable from your machine, not the LAN.
+    ports:
+      - "127.0.0.1:4000:4000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    environment:
+      # The browser reaches the backend through its published loopback port.
+      VITE_API_BASE_URL: http://localhost:4000
+      VITE_USE_POLLING: "true"
+    ports:
+      - "127.0.0.1:5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+
+  pipeline:
+    build:
+      context: .
+      dockerfile: Dockerfile.pipeline
+    profiles: ["pipeline"]
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-medune}:${POSTGRES_PASSWORD:-medune}@db:5432/${POSTGRES_DB:-medune}
+    volumes:
+      - ./scripts:/app/scripts
+      - ./data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres-data:

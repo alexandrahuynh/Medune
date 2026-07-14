@@ -10,6 +10,57 @@ The scraper/importer is intentionally review-first:
 - The script doesn't generate clinical recommendations from scraped text.
 - Only `approved` rules should be used by the risk engine.
 
+## Run with Docker (local dev stack)
+
+The fastest way to run the whole app — PostgreSQL, the backend, and the
+frontend — without installing Node, Python, or PostgreSQL locally. Requires
+[Docker Desktop](https://docs.docker.com/get-docker/) (or Docker Engine +
+Compose v2).
+
+Start the stack:
+
+```bash
+docker compose up --build
+```
+
+This starts three services and applies `db/schema.sql` on first boot:
+
+- Frontend (Vite dev server, hot reload): http://localhost:5173
+- Backend (medication search API): http://localhost:4000
+- PostgreSQL: internal to the compose network
+
+Seed the MVP medication data (one-time, or after resetting the database). Run
+it in a second terminal while the stack is up:
+
+```bash
+docker compose --profile pipeline run --rm pipeline
+```
+
+This runs the ingestion script's `--seed-mvp` step. After it finishes, the
+search API returns results, e.g. http://localhost:4000/api/medications/search?q=clopidogrel
+
+Useful commands:
+
+```bash
+docker compose exec db psql -U medune -d medune   # inspect the database
+docker compose logs -f backend                    # follow backend logs
+docker compose down                               # stop and remove containers
+docker compose down -v                            # also wipe the database volume
+```
+
+Notes:
+
+- Ports are published to `127.0.0.1` only, so nothing is exposed to your LAN.
+  Inside its container the backend binds `0.0.0.0` (required for Docker
+  networking); the guard in `backend/server.js` permits this while still
+  rejecting arbitrary LAN addresses.
+- Source directories are bind-mounted, so edits to `backend/` and `frontend/`
+  hot-reload without rebuilding.
+- To override the database credentials or name, copy `.env.example` to `.env`
+  and edit it (compose reads `.env` automatically).
+
+The manual, host-based setup below is still supported.
+
 ## Python Ingestion Setup
 
 ```powershell
