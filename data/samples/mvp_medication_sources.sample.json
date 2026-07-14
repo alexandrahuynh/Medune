@@ -1,0 +1,62 @@
+{
+  "collectedAt": "2026-07-14T00:00:00+00:00",
+  "collectorVersion": "mvp-0.1",
+  "collectionMode": "curated_static",
+  "notes": "Conservative MVP collector sample for review. Records are not clinically approved recommendations.",
+  "records": [
+    {
+      "sourceName": "Medune MVP curated CPIC review starter",
+      "sourceType": "curated_static",
+      "sourceUrl": "https://cpicpgx.org/guidelines/",
+      "medication": {
+        "genericName": "clopidogrel",
+        "brandName": "Plavix",
+        "drugClass": "antiplatelet"
+      },
+      "gene": "CYP2C19",
+      "phenotype": "poor metabolizer",
+      "riskLevel": "potential_concern",
+      "rawSummary": "CYP2C19 poor metabolizer status may reduce clopidogrel activation.",
+      "patientSummary": "Your CYP2C19 result may affect how your body responds to clopidogrel.",
+      "clinicianSummary": "CYP2C19 poor metabolizer status may reduce clopidogrel activation.",
+      "recommendedAction": "Review this result with a clinician before making medication changes.",
+      "notes": "Curated MVP starter candidate for review; not clinical approval."
+    },
+    {
+      "sourceName": "Medune MVP curated CPIC review starter",
+      "sourceType": "curated_static",
+      "sourceUrl": "https://cpicpgx.org/guidelines/",
+      "medication": {
+        "genericName": "citalopram",
+        "brandName": "Celexa",
+        "drugClass": "antidepressant"
+      },
+      "gene": "CYP2C19",
+      "phenotype": "poor metabolizer",
+      "riskLevel": "potential_concern",
+      "rawSummary": "CYP2C19 poor metabolizer status may increase citalopram exposure.",
+      "patientSummary": "Your CYP2C19 result may affect how your body processes citalopram.",
+      "clinicianSummary": "CYP2C19 poor metabolizer status may increase citalopram exposure.",
+      "recommendedAction": "Review this result with a clinician to discuss medication selection, dosing, or monitoring.",
+      "notes": "Curated MVP starter candidate for review; not clinical approval."
+    },
+    {
+      "sourceName": "Medune MVP curated CPIC review starter",
+      "sourceType": "curated_static",
+      "sourceUrl": "https://cpicpgx.org/guidelines/",
+      "medication": {
+        "genericName": "simvastatin",
+        "brandName": "Zocor",
+        "drugClass": "statin"
+      },
+      "gene": "SLCO1B1",
+      "phenotype": "decreased function",
+      "riskLevel": "caution",
+      "rawSummary": "SLCO1B1 decreased function may increase simvastatin exposure and myopathy risk.",
+      "patientSummary": "Your SLCO1B1 result may affect your risk of muscle-related side effects with simvastatin.",
+      "clinicianSummary": "SLCO1B1 decreased function may increase simvastatin exposure and myopathy risk.",
+      "recommendedAction": "Review this result with a clinician to discuss risk, monitoring, or alternatives.",
+      "notes": "Curated MVP starter candidate for review; not clinical approval."
+    }
+  ]
+}

@@ -1,11 +1,14 @@
 import argparse
 import csv
+import json
 import logging
 import os
 import time
 import zipfile
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from io import BytesIO, StringIO
+from pathlib import Path
 from typing import Iterable, Optional
 from xml.etree import ElementTree
 from urllib.parse import urlparse
@@ -24,9 +27,10 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 DATABASE_URL = os.environ.get("DATABASE_URL")
 USER_AGENT = os.environ.get(
     "MEDUNE_INGEST_USER_AGENT",
-    "MeduneMVPIngestion/0.1 contact=replace-with-your-email@example.com",
+    "MeduneMVPIngestion/0.1 contact=configure-user-agent",
 )
 RATE_LIMIT_SECONDS = float(os.environ.get("MEDUNE_INGEST_RATE_LIMIT_SECONDS", "1.0"))
+COLLECTOR_VERSION = "mvp-0.1"
 
 HEADERS = {
     "User-Agent": USER_AGENT,
@@ -71,6 +75,69 @@ ALLOWED_RISK_LEVELS = {
     "potential_concern",
     "insufficient_data",
 }
+
+MVP_COLLECTOR_RECORDS = [
+    {
+        "sourceName": "Medune MVP curated CPIC review starter",
+        "sourceType": "curated_static",
+        "sourceUrl": "https://cpicpgx.org/guidelines/",
+        "medication": {
+            "genericName": "clopidogrel",
+            "brandName": "Plavix",
+            "drugClass": "antiplatelet",
+        },
+        "gene": "CYP2C19",
+        "phenotype": "poor metabolizer",
+        "riskLevel": "potential_concern",
+        "rawSummary": "CYP2C19 poor metabolizer status may reduce clopidogrel activation.",
+        "patientSummary": "Your CYP2C19 result may affect how your body responds to clopidogrel.",
+        "clinicianSummary": "CYP2C19 poor metabolizer status may reduce clopidogrel activation.",
+        "recommendedAction": "Review this result with a clinician before making medication changes.",
+        "notes": "Curated MVP starter candidate for review; not clinical approval.",
+    },
+    {
+        "sourceName": "Medune MVP curated CPIC review starter",
+        "sourceType": "curated_static",
+        "sourceUrl": "https://cpicpgx.org/guidelines/",
+        "medication": {
+            "genericName": "citalopram",
+            "brandName": "Celexa",
+            "drugClass": "antidepressant",
+        },
+        "gene": "CYP2C19",
+        "phenotype": "poor metabolizer",
+        "riskLevel": "potential_concern",
+        "rawSummary": "CYP2C19 poor metabolizer status may increase citalopram exposure.",
+        "patientSummary": "Your CYP2C19 result may affect how your body processes citalopram.",
+        "clinicianSummary": "CYP2C19 poor metabolizer status may increase citalopram exposure.",
+        "recommendedAction": (
+            "Review this result with a clinician to discuss medication selection, "
+            "dosing, or monitoring."
+        ),
+        "notes": "Curated MVP starter candidate for review; not clinical approval.",
+    },
+    {
+        "sourceName": "Medune MVP curated CPIC review starter",
+        "sourceType": "curated_static",
+        "sourceUrl": "https://cpicpgx.org/guidelines/",
+        "medication": {
+            "genericName": "simvastatin",
+            "brandName": "Zocor",
+            "drugClass": "statin",
+        },
+        "gene": "SLCO1B1",
+        "phenotype": "decreased function",
+        "riskLevel": "caution",
+        "rawSummary": "SLCO1B1 decreased function may increase simvastatin exposure and myopathy risk.",
+        "patientSummary": (
+            "Your SLCO1B1 result may affect your risk of muscle-related "
+            "side effects with simvastatin."
+        ),
+        "clinicianSummary": "SLCO1B1 decreased function may increase simvastatin exposure and myopathy risk.",
+        "recommendedAction": "Review this result with a clinician to discuss risk, monitoring, or alternatives.",
+        "notes": "Curated MVP starter candidate for review; not clinical approval.",
+    },
+]
 
 
 @dataclass(frozen=True)
@@ -123,8 +190,215 @@ def normalize_phenotype(value: str) -> Optional[str]:
 
 def require_database_url() -> str:
     if not DATABASE_URL:
-        raise RuntimeError("DATABASE_URL is required. Example: postgresql://localhost:5432/medune")
+        raise RuntimeError("DATABASE_URL is required.")
     return DATABASE_URL
+
+
+def write_json_file(path: str, payload: dict) -> None:
+    output_path = Path(path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def read_json_file(path: str) -> dict:
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise RuntimeError(f"Input file not found: {path}") from exc
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"Input file is not valid JSON: {path}") from exc
+
+
+def collect_mvp_sources(output_path: str) -> None:
+    payload = {
+        "collectedAt": datetime.now(timezone.utc).isoformat(),
+        "collectorVersion": COLLECTOR_VERSION,
+        "collectionMode": "curated_static",
+        "notes": (
+            "Conservative MVP collector output for review. "
+            "Records are not clinically approved recommendations."
+        ),
+        "records": MVP_COLLECTOR_RECORDS,
+    }
+    write_json_file(output_path, payload)
+    logging.info("Wrote %d raw MVP source records to %s.", len(MVP_COLLECTOR_RECORDS), output_path)
+
+
+def validate_raw_payload(payload: dict) -> list[dict]:
+    if not isinstance(payload, dict):
+        raise RuntimeError("Raw input must be a JSON object.")
+    records = payload.get("records")
+    if not isinstance(records, list):
+        raise RuntimeError("Raw input must contain a records array.")
+    if not records:
+        raise RuntimeError("Raw input records array is empty.")
+
+    required_record_fields = {
+        "sourceName",
+        "sourceType",
+        "medication",
+        "gene",
+        "phenotype",
+        "rawSummary",
+    }
+    for idx, record in enumerate(records, start=1):
+        if not isinstance(record, dict):
+            raise RuntimeError(f"Raw record {idx} must be an object.")
+        missing = sorted(required_record_fields - set(record.keys()))
+        if missing:
+            raise RuntimeError(f"Raw record {idx} is missing fields: {', '.join(missing)}")
+        medication = record.get("medication")
+        if not isinstance(medication, dict):
+            raise RuntimeError(f"Raw record {idx} medication must be an object.")
+        for field in ("genericName", "brandName"):
+            if not medication.get(field):
+                raise RuntimeError(f"Raw record {idx} medication is missing {field}.")
+
+    return records
+
+
+def normalize_raw_record(record: dict) -> dict:
+    medication = record["medication"]
+    generic_name = normalize_key(medication.get("genericName"))
+    brand_name = normalize_text(medication.get("brandName"))
+    drug_class = normalize_text(medication.get("drugClass")) or None
+    gene = normalize_gene(record.get("gene", ""))
+    phenotype = normalize_key(record.get("phenotype"))
+    risk_level = normalize_key(record.get("riskLevel")) or "insufficient_data"
+    review_status = normalize_key(record.get("reviewStatus")) or REVIEW_PENDING
+
+    normalized = {
+        "genericName": generic_name,
+        "brandName": brand_name,
+        "drugClass": drug_class,
+        "gene": gene,
+        "phenotype": phenotype,
+        "riskLevel": risk_level,
+        "patientSummary": normalize_text(record.get("patientSummary")) or "Pending clinical review.",
+        "clinicianSummary": normalize_text(record.get("clinicianSummary")) or "Pending clinical review.",
+        "recommendedAction": normalize_text(record.get("recommendedAction")) or "Pending clinical review before use.",
+        "sourceName": normalize_text(record.get("sourceName")),
+        "sourceUrl": normalize_text(record.get("sourceUrl")) or None,
+        "sourceType": normalize_text(record.get("sourceType")),
+        "reviewStatus": review_status,
+        "evidenceNotes": normalize_text(record.get("notes")),
+        "rawSummary": normalize_text(record.get("rawSummary")),
+        "ruleVersion": COLLECTOR_VERSION,
+    }
+
+    validate_rule(
+        RuleRecord(
+            medication_generic_name=normalized["genericName"],
+            brand_name=normalized["brandName"],
+            drug_class=normalized["drugClass"],
+            gene=normalized["gene"],
+            phenotype=normalized["phenotype"],
+            risk_level=normalized["riskLevel"],
+            patient_summary=normalized["patientSummary"],
+            clinician_summary=normalized["clinicianSummary"],
+            recommended_action=normalized["recommendedAction"],
+            evidence_source=normalized["sourceName"],
+            evidence_url=normalized["sourceUrl"] or "",
+            rule_version=normalized["ruleVersion"],
+            review_status=normalized["reviewStatus"],
+        )
+    )
+
+    return normalized
+
+
+def normalize_collected_sources(input_path: str, output_path: str) -> None:
+    payload = read_json_file(input_path)
+    records = validate_raw_payload(payload)
+    normalized_records = [normalize_raw_record(record) for record in records]
+    output = {
+        "normalizedAt": datetime.now(timezone.utc).isoformat(),
+        "normalizerVersion": COLLECTOR_VERSION,
+        "sourceFile": input_path,
+        "reviewNote": "Normalized records are review material and default to pending_review.",
+        "records": normalized_records,
+    }
+    write_json_file(output_path, output)
+    logging.info("Wrote %d normalized MVP records to %s.", len(normalized_records), output_path)
+
+
+def validate_normalized_payload(payload: dict) -> list[dict]:
+    if not isinstance(payload, dict):
+        raise RuntimeError("Normalized input must be a JSON object.")
+    records = payload.get("records")
+    if not isinstance(records, list):
+        raise RuntimeError("Normalized input must contain a records array.")
+    if not records:
+        raise RuntimeError("Normalized input records array is empty.")
+
+    required_fields = {
+        "genericName",
+        "brandName",
+        "gene",
+        "phenotype",
+        "riskLevel",
+        "patientSummary",
+        "clinicianSummary",
+        "recommendedAction",
+        "sourceName",
+        "sourceType",
+        "reviewStatus",
+    }
+    for idx, record in enumerate(records, start=1):
+        if not isinstance(record, dict):
+            raise RuntimeError(f"Normalized record {idx} must be an object.")
+        missing = sorted(required_fields - set(record.keys()))
+        if missing:
+            raise RuntimeError(f"Normalized record {idx} is missing fields: {', '.join(missing)}")
+        validate_rule(record_to_rule(record))
+
+    return records
+
+
+def record_to_rule(record: dict) -> RuleRecord:
+    return RuleRecord(
+        medication_generic_name=normalize_key(record.get("genericName")),
+        brand_name=normalize_text(record.get("brandName")),
+        drug_class=normalize_text(record.get("drugClass")) or None,
+        gene=normalize_gene(record.get("gene", "")),
+        phenotype=normalize_key(record.get("phenotype")),
+        risk_level=normalize_key(record.get("riskLevel")),
+        patient_summary=normalize_text(record.get("patientSummary")),
+        clinician_summary=normalize_text(record.get("clinicianSummary")),
+        recommended_action=normalize_text(record.get("recommendedAction")),
+        evidence_source=normalize_text(record.get("sourceName")),
+        evidence_url=normalize_text(record.get("sourceUrl")),
+        rule_version=normalize_text(record.get("ruleVersion")) or COLLECTOR_VERSION,
+        review_status=normalize_key(record.get("reviewStatus")) or REVIEW_PENDING,
+    )
+
+
+def load_normalized_rules(input_path: str) -> list[RuleRecord]:
+    payload = read_json_file(input_path)
+    records = validate_normalized_payload(payload)
+    return [record_to_rule(record) for record in records]
+
+
+def dry_run_normalized(input_path: str) -> None:
+    rules = load_normalized_rules(input_path)
+    medications = sorted({rule.medication_generic_name for rule in rules})
+    candidates = sorted(
+        {
+            f"{rule.medication_generic_name} + {normalize_gene(rule.gene)} {normalize_key(rule.phenotype)}"
+            for rule in rules
+        }
+    )
+    pending_count = sum(1 for rule in rules if rule.review_status == REVIEW_PENDING)
+
+    print("Medune MVP collector dry run")
+    print("Review material only; not clinical approval.")
+    print(f"Medications: {len(medications)}")
+    for medication in medications:
+        print(f"- {medication}")
+    print(f"Rule candidates: {len(candidates)}")
+    for candidate in candidates:
+        print(f"- {candidate}")
+    print(f"Pending-review records: {pending_count}")
 
 
 def validate_rule(rule: RuleRecord) -> None:
@@ -512,7 +786,9 @@ def upsert_rule(conn: psycopg.Connection, rule: RuleRecord) -> None:
                 rule_version = EXCLUDED.rule_version,
                 review_status = EXCLUDED.review_status,
                 imported_at = COALESCE(drug_gene_rules.imported_at, now()),
-                updated_at = now();
+                updated_at = now()
+            WHERE drug_gene_rules.review_status != 'approved'
+               OR EXCLUDED.review_status = 'approved';
             """,
             (
                 medication_id,
@@ -547,8 +823,44 @@ def insert_rules(rules: list[RuleRecord]) -> None:
                 upsert_rule(conn, rule)
 
 
+def ingest_normalized_records(input_path: str) -> None:
+    database_url = require_database_url()
+    rules = load_normalized_rules(input_path)
+    with psycopg.connect(database_url) as conn:
+        with conn.transaction():
+            for rule in rules:
+                upsert_rule(conn, rule)
+    logging.info("Inserted or updated %d normalized records.", len(rules))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Ingest Medune MVP PGx medication/rule data.")
+    parser.add_argument(
+        "--collect-mvp",
+        action="store_true",
+        help="Collect curated MVP source records into raw JSON without requiring PostgreSQL.",
+    )
+    parser.add_argument(
+        "--normalize",
+        help="Normalize a raw collector JSON file into Medune review records.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Summarize normalized records for review without inserting into PostgreSQL.",
+    )
+    parser.add_argument(
+        "--input",
+        help="Input normalized JSON path for --dry-run.",
+    )
+    parser.add_argument(
+        "--ingest-normalized",
+        help="Insert normalized JSON records into PostgreSQL. Requires DATABASE_URL.",
+    )
+    parser.add_argument(
+        "--output",
+        help="Output JSON path for --collect-mvp or --normalize.",
+    )
     parser.add_argument("--seed-mvp", action="store_true", help="Insert the five MVP starter rules.")
     parser.add_argument(
         "--mark-approved",
@@ -582,6 +894,29 @@ def main() -> None:
     )
 
     args = parser.parse_args()
+
+    if args.collect_mvp:
+        if not args.output:
+            raise RuntimeError("--collect-mvp requires --output.")
+        collect_mvp_sources(args.output)
+        return
+
+    if args.normalize:
+        if not args.output:
+            raise RuntimeError("--normalize requires --output.")
+        normalize_collected_sources(args.normalize, args.output)
+        return
+
+    if args.dry_run:
+        if not args.input:
+            raise RuntimeError("--dry-run requires --input.")
+        dry_run_normalized(args.input)
+        return
+
+    if args.ingest_normalized:
+        ingest_normalized_records(args.ingest_normalized)
+        return
+
     rules: list[RuleRecord] = []
 
     if args.seed_mvp:

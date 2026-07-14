@@ -3,3 +3,13 @@
 __pycache__/
 *.pyc
 *.csv
+*.log
+node_modules/
+dist/
+.postgres-data/
+data/raw/*
+!data/raw/.gitkeep
+data/normalized/*
+!data/normalized/.gitkeep
+data/review/*
+!data/review/.gitkeep
