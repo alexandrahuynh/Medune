@@ -3,6 +3,8 @@ import dotenv from "dotenv";
 import express from "express";
 import { fileURLToPath } from "node:url";
 import medicationsRouter from "./routes/medications.js";
+import patientsRouter from "./routes/patients.js";
+import riskRouter from "./routes/risk.js";
 
 dotenv.config({
   path: fileURLToPath(new URL(".env", import.meta.url)),
@@ -32,6 +34,8 @@ app.get("/health", (_req, res) => {
 });
 
 app.use("/api/medications", medicationsRouter);
+app.use("/api/patients", patientsRouter);
+app.use("/api/risk", riskRouter);
 
 app.use((err, _req, res, _next) => {
   console.error("Unhandled request error.", {

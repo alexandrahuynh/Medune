@@ -32,22 +32,37 @@ const REQUIRED_MEDICATIONS = [
   },
 ];
 
+const CYP2C19_PHENOTYPES = [
+  "poor metabolizer",
+  "intermediate metabolizer",
+  "normal metabolizer",
+  "rapid metabolizer",
+  "ultrarapid metabolizer",
+];
+
+const SLCO1B1_PHENOTYPES = [
+  "normal function",
+  "possible decreased function",
+  "decreased function",
+  "poor function",
+];
+
 const REQUIRED_RULES = [
-  {
+  ...CYP2C19_PHENOTYPES.map((phenotype) => ({
     genericName: "clopidogrel",
     gene: "CYP2C19",
-    phenotype: "poor metabolizer",
-  },
-  {
+    phenotype,
+  })),
+  ...CYP2C19_PHENOTYPES.map((phenotype) => ({
     genericName: "citalopram",
     gene: "CYP2C19",
-    phenotype: "poor metabolizer",
-  },
-  {
+    phenotype,
+  })),
+  ...SLCO1B1_PHENOTYPES.map((phenotype) => ({
     genericName: "simvastatin",
     gene: "SLCO1B1",
-    phenotype: "decreased function",
-  },
+    phenotype,
+  })),
 ];
 
 export function requireDatabaseUrl(env = process.env) {
@@ -182,7 +197,9 @@ export async function verifyMvpData(pool) {
   if (REQUIRED_RULES.every((rule) =>
     ruleKeys.has(`${rule.genericName}|${rule.gene}|${rule.phenotype}`)
   )) {
-    passed.push("Required MVP drug-gene rules exist.");
+    passed.push(
+      `Required MVP drug-gene rules exist (${REQUIRED_RULES.length} phenotype rules).`,
+    );
   }
 
   return {
