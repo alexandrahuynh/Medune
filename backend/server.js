@@ -13,10 +13,12 @@ const app = express();
 const port = process.env.PORT || 4000;
 const host = process.env.HOST || "127.0.0.1";
 const frontendOrigin = process.env.FRONTEND_ORIGIN || "http://localhost:5173";
-const allowedHosts = new Set(["127.0.0.1", "localhost", "::1"]);
+// Loopback for local dev, plus 0.0.0.0 for containerized runs where the port is
+// published to the host's loopback interface only (see docker-compose.yml).
+const allowedHosts = new Set(["127.0.0.1", "localhost", "::1", "0.0.0.0"]);
 
 if (!allowedHosts.has(host)) {
-  console.error("Backend HOST must be a loopback address.");
+  console.error("Backend HOST must be a loopback address or 0.0.0.0 (containerized).");
   process.exit(1);
 }
 

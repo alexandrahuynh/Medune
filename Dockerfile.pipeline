@@ -1,0 +1,23 @@
+# Medune data ingestion pipeline (Python).
+# Run on demand, e.g.:
+#   docker compose --profile pipeline run --rm pipeline
+# The default command seeds the MVP medication data; override to run other steps.
+FROM python:3.12-slim
+
+WORKDIR /app
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+
+COPY requirements.txt ./
+RUN pip install -r requirements.txt
+
+# Baked-in copy for standalone `docker build`; compose bind-mounts these so
+# generated files under data/ persist to the host and other steps stay runnable.
+COPY scripts ./scripts
+COPY data ./data
+
+# DATABASE_URL is supplied by compose. Seeds the five MVP starter rules and
+# upserts the MVP medication rows the search API reads.
+CMD ["python", "scripts/ingest_medune_mvp_data.py", "--seed-mvp"]
