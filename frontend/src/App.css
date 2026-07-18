@@ -394,6 +394,12 @@
   text-align: left;
 }
 
+.pgx-result-card.is-selected,
+.result-item.is-selected {
+  background: #f8fffd;
+  border-color: var(--teal-dark);
+}
+
 .pgx-result-card p {
   margin: 0 0 6px;
   color: var(--text-dark);
@@ -413,6 +419,12 @@
   border-radius: 20px;
   background: #f8fffd;
   text-align: left;
+}
+
+.pgx-form form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .pgx-form h3 {

@@ -128,14 +128,14 @@ test("matching gene and phenotype returns risk details and saves risk_results", 
 
   assert.equal(response.supported, true);
   assert.equal(response.matched, true);
+  assert.equal(response.status, "matched");
   assert.equal(response.riskLevel, "potential_concern");
   assert.equal(response.medication.genericName, "clopidogrel");
   assert.equal(response.gene, "CYP2C19");
   assert.equal(response.phenotype, "poor metabolizer");
+  assert.equal(response.matches.length, 1);
+  assert.equal(response.matches[0].riskLevel, "potential_concern");
   assert.equal(response.patientSummary, approvedRuleRow.patient_summary);
-  assert.equal(response.clinicianSummary, approvedRuleRow.clinician_summary);
-  assert.equal(response.recommendedAction, approvedRuleRow.recommended_action);
-  assert.equal(response.evidenceSource, "CPIC");
   assert.equal(response.ruleId, ruleId);
   assert.equal(response.pgxResultId, pgxResultId);
   assert.equal(response.riskResultId, riskResultId);
@@ -175,7 +175,7 @@ test("approved rules query filters by review_status = approved", async () => {
   assert.match(rulesSql, /review_status = 'approved'/);
 });
 
-test("missing needed PGx data returns insufficient_data and saves risk_results", async () => {
+test("saved PGx with no matching phenotype returns insufficient_data", async () => {
   const pool = createPool([
     {
       match: (sql) => /FROM medications/i.test(sql),
@@ -207,8 +207,6 @@ test("missing needed PGx data returns insufficient_data and saves risk_results",
         assert.equal(values[2], null);
         assert.equal(values[3], null);
         assert.equal(values[4], "insufficient_data");
-        assert.ok(values[5]);
-        assert.ok(values[7]);
         return { rows: [{ id: riskResultId }] };
       },
     },
@@ -218,11 +216,188 @@ test("missing needed PGx data returns insufficient_data and saves risk_results",
 
   assert.equal(response.supported, true);
   assert.equal(response.matched, false);
+  assert.equal(response.status, "insufficient_data");
   assert.equal(response.riskLevel, "insufficient_data");
-  assert.equal(response.ruleId, null);
-  assert.equal(response.pgxResultId, null);
-  assert.equal(response.riskResultId, riskResultId);
-  assert.match(response.message, /genetic results/i);
+  assert.deepEqual(response.missingGenes, []);
+  assert.match(response.message, /No matching drug-gene rule/i);
+});
+
+test("patient with no saved PGx results returns a clear no-PGx message", async () => {
+  const pool = createPool([
+    {
+      match: (sql) => /FROM medications/i.test(sql),
+      run: () => ({ rows: [medicationRow] }),
+    },
+    {
+      match: (sql) => /FROM patients/i.test(sql),
+      run: () => ({ rows: [{ id: patientId }] }),
+    },
+    {
+      match: (sql) => /FROM drug_gene_rules/i.test(sql),
+      run: () => ({ rows: [approvedRuleRow] }),
+    },
+    {
+      match: (sql) => /FROM pgx_results/i.test(sql),
+      run: () => ({ rows: [] }),
+    },
+    {
+      match: (sql) => /INSERT INTO risk_results/i.test(sql),
+      run: (_sql, values) => {
+        assert.equal(values[4], "insufficient_data");
+        return { rows: [{ id: riskResultId }] };
+      },
+    },
+  ]);
+
+  const response = await matchRules(pool, { patientId, medicationId });
+
+  assert.equal(response.supported, true);
+  assert.equal(response.matched, false);
+  assert.equal(response.status, "insufficient_data");
+  assert.deepEqual(response.missingGenes, ["CYP2C19"]);
+  assert.match(
+    response.message,
+    /No PGx data found\. Please add your genetic result before checking medication risk\./,
+  );
+});
+
+test("missing required gene returns a gene-specific insufficient_data message", async () => {
+  const simvastatinRow = {
+    id: medicationId,
+    generic_name: "simvastatin",
+    brand_name: "Zocor",
+    drug_class: "statin",
+  };
+
+  const pool = createPool([
+    {
+      match: (sql) => /FROM medications/i.test(sql),
+      run: () => ({ rows: [simvastatinRow] }),
+    },
+    {
+      match: (sql) => /FROM patients/i.test(sql),
+      run: () => ({ rows: [{ id: patientId }] }),
+    },
+    {
+      match: (sql) => /FROM drug_gene_rules/i.test(sql),
+      run: () => ({
+        rows: [
+          {
+            id: ruleId,
+            gene: "SLCO1B1",
+            phenotype: "decreased function",
+            risk_level: "caution",
+            patient_summary: "Muscle risk summary.",
+            clinician_summary: "Muscle risk clinician summary.",
+            recommended_action: "Review with a clinician.",
+            evidence_source: "CPIC",
+          },
+        ],
+      }),
+    },
+    {
+      match: (sql) => /FROM pgx_results/i.test(sql),
+      run: () => ({
+        rows: [
+          {
+            id: pgxResultId,
+            gene: "CYP2C19",
+            phenotype: "poor metabolizer",
+          },
+        ],
+      }),
+    },
+    {
+      match: (sql) => /INSERT INTO risk_results/i.test(sql),
+      run: (_sql, values) => {
+        assert.equal(values[4], "insufficient_data");
+        return { rows: [{ id: riskResultId }] };
+      },
+    },
+  ]);
+
+  const response = await matchRules(pool, { patientId, medicationId });
+
+  assert.equal(response.supported, true);
+  assert.equal(response.matched, false);
+  assert.equal(response.status, "insufficient_data");
+  assert.deepEqual(response.missingGenes, ["SLCO1B1"]);
+  assert.equal(response.message, "Missing SLCO1B1 PGx result for this medication.");
+});
+
+test("multiple matches return all matches and highest overall risk", async () => {
+  let insertCount = 0;
+  const pool = createPool([
+    {
+      match: (sql) => /FROM medications/i.test(sql),
+      run: () => ({ rows: [medicationRow] }),
+    },
+    {
+      match: (sql) => /FROM patients/i.test(sql),
+      run: () => ({ rows: [{ id: patientId }] }),
+    },
+    {
+      match: (sql) => /FROM drug_gene_rules/i.test(sql),
+      run: () => ({
+        rows: [
+          {
+            id: "rule-low",
+            gene: "CYP2C19",
+            phenotype: "normal metabolizer",
+            risk_level: "low_risk",
+            patient_summary: "Low risk summary.",
+            clinician_summary: "Low risk clinician summary.",
+            recommended_action: "Continue review with a clinician.",
+            evidence_source: "CPIC",
+          },
+          {
+            id: "rule-caution",
+            gene: "SLCO1B1",
+            phenotype: "decreased function",
+            risk_level: "caution",
+            patient_summary: "Caution summary.",
+            clinician_summary: "Caution clinician summary.",
+            recommended_action: "Review with a clinician.",
+            evidence_source: "CPIC",
+          },
+        ],
+      }),
+    },
+    {
+      match: (sql) => /FROM pgx_results/i.test(sql),
+      run: () => ({
+        rows: [
+          {
+            id: "pgx-cyp",
+            gene: "CYP2C19",
+            phenotype: "normal metabolizer",
+          },
+          {
+            id: "pgx-slco",
+            gene: "SLCO1B1",
+            phenotype: "decreased function",
+          },
+        ],
+      }),
+    },
+    {
+      match: (sql) => /INSERT INTO risk_results/i.test(sql),
+      run: (_sql, values) => {
+        insertCount += 1;
+        return { rows: [{ id: `risk-${insertCount}` }] };
+      },
+    },
+  ]);
+
+  const response = await matchRules(pool, { patientId, medicationId });
+
+  assert.equal(response.matched, true);
+  assert.equal(response.status, "matched");
+  assert.equal(response.riskLevel, "caution");
+  assert.equal(response.matches.length, 2);
+  assert.equal(response.gene, "SLCO1B1");
+  assert.equal(response.phenotype, "decreased function");
+  assert.equal(insertCount, 2);
 });
 
 test("unknown patient returns a safe response", async () => {

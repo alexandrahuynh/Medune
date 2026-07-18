@@ -80,6 +80,10 @@ DEFAULT_RECOMMENDED_ACTION = (
     "Review this result with a clinician before making medication changes."
 )
 
+NOT_MEDICAL_ADVICE_NOTE = (
+    " This information is for educational MVP purposes only and is not medical advice."
+)
+
 # Curated MVP starter rules for the three supported medications only.
 # Risk levels are simplified educational labels, not clinical advice.
 MVP_RULE_SPECS = [
@@ -243,7 +247,7 @@ MVP_RULE_SPECS = [
             "and treatment response in some people."
         ),
     },
-    # simvastatin + SLCO1B1
+    # simvastatin / Zocor + SLCO1B1
     {
         "genericName": "simvastatin",
         "brandName": "Zocor",
@@ -252,12 +256,15 @@ MVP_RULE_SPECS = [
         "phenotype": "normal function",
         "riskLevel": "low_risk",
         "patientSummary": (
-            "Your SLCO1B1 result does not currently suggest a higher concern "
-            "for muscle-related side effects with simvastatin."
+            "Your SLCO1B1 result does not show a major PGx-related concern "
+            "for simvastatin in this MVP."
         ),
         "clinicianSummary": (
-            "SLCO1B1 normal function is generally associated with typical "
-            "simvastatin exposure."
+            "SLCO1B1 normal function is not expected to increase "
+            "simvastatin-associated muscle symptom risk in this simplified MVP rule set."
+        ),
+        "recommendedAction": (
+            "Continue to review medication decisions with a clinician."
         ),
     },
     {
@@ -268,12 +275,15 @@ MVP_RULE_SPECS = [
         "phenotype": "possible decreased function",
         "riskLevel": "caution",
         "patientSummary": (
-            "Your SLCO1B1 result may be linked to a somewhat higher chance of "
-            "muscle-related side effects with simvastatin."
+            "Your SLCO1B1 result may increase the chance of muscle-related "
+            "side effects with simvastatin."
         ),
         "clinicianSummary": (
-            "SLCO1B1 possible decreased function may modestly increase "
-            "simvastatin exposure and myopathy risk."
+            "SLCO1B1 possible decreased function may increase "
+            "simvastatin-associated muscle symptom risk."
+        ),
+        "recommendedAction": (
+            "Review this result with a clinician before making medication changes."
         ),
     },
     {
@@ -284,12 +294,15 @@ MVP_RULE_SPECS = [
         "phenotype": "decreased function",
         "riskLevel": "caution",
         "patientSummary": (
-            "Your SLCO1B1 result may affect your risk of muscle-related "
+            "Your SLCO1B1 result may increase the chance of muscle-related "
             "side effects with simvastatin."
         ),
         "clinicianSummary": (
-            "SLCO1B1 decreased function may increase simvastatin exposure "
-            "and myopathy risk."
+            "SLCO1B1 decreased function may increase "
+            "simvastatin-associated muscle symptom risk."
+        ),
+        "recommendedAction": (
+            "Review this result with a clinician before making medication changes."
         ),
     },
     {
@@ -300,15 +313,30 @@ MVP_RULE_SPECS = [
         "phenotype": "poor function",
         "riskLevel": "potential_concern",
         "patientSummary": (
-            "Your SLCO1B1 result suggests a higher concern for muscle-related "
+            "Your SLCO1B1 result may indicate a higher chance of muscle-related "
             "side effects with simvastatin."
         ),
         "clinicianSummary": (
-            "SLCO1B1 poor function may substantially increase simvastatin "
-            "exposure and myopathy risk."
+            "SLCO1B1 poor function may increase "
+            "simvastatin-associated muscle symptom risk."
+        ),
+        "recommendedAction": (
+            "Review this result with a clinician before making medication changes."
         ),
     },
 ]
+
+
+def rule_recommended_action(spec: dict) -> str:
+    return spec.get("recommendedAction") or DEFAULT_RECOMMENDED_ACTION
+
+
+def rule_patient_summary(spec: dict) -> str:
+    return f"{spec['patientSummary']}{NOT_MEDICAL_ADVICE_NOTE}"
+
+
+def rule_clinician_summary(spec: dict) -> str:
+    return f"{spec['clinicianSummary']}{NOT_MEDICAL_ADVICE_NOTE}"
 
 
 def build_mvp_collector_records() -> list[dict]:
@@ -327,11 +355,14 @@ def build_mvp_collector_records() -> list[dict]:
                 "gene": spec["gene"],
                 "phenotype": spec["phenotype"],
                 "riskLevel": spec["riskLevel"],
-                "rawSummary": spec["clinicianSummary"],
-                "patientSummary": spec["patientSummary"],
-                "clinicianSummary": spec["clinicianSummary"],
-                "recommendedAction": DEFAULT_RECOMMENDED_ACTION,
-                "notes": "Curated MVP starter candidate for review; not clinical approval.",
+                "rawSummary": rule_clinician_summary(spec),
+                "patientSummary": rule_patient_summary(spec),
+                "clinicianSummary": rule_clinician_summary(spec),
+                "recommendedAction": rule_recommended_action(spec),
+                "notes": (
+                    "Curated MVP starter candidate for review; not clinical approval. "
+                    "Not medical advice."
+                ),
             }
         )
     return records
@@ -624,9 +655,9 @@ def get_manual_mvp_rules(mark_approved: bool = False) -> list[RuleRecord]:
             gene=spec["gene"],
             phenotype=spec["phenotype"],
             risk_level=spec["riskLevel"],
-            patient_summary=spec["patientSummary"],
-            clinician_summary=spec["clinicianSummary"],
-            recommended_action=DEFAULT_RECOMMENDED_ACTION,
+            patient_summary=rule_patient_summary(spec),
+            clinician_summary=rule_clinician_summary(spec),
+            recommended_action=rule_recommended_action(spec),
             evidence_source="CPIC",
             evidence_url=evidence_url,
             rule_version="mvp-v2",

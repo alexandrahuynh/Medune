@@ -1,12 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { searchMedications } from "../api/medications";
+import { resolvePatient } from "../api/patients";
 import { getPgxResults, savePgxResult } from "../api/pgx";
 import { matchMedicationRisk } from "../api/risk";
 import { getCurrentUser, logOut } from "../utils/auth";
-
-// Temporary demo patient ID until real auth/patient profile is connected.
-const DEMO_PATIENT_ID = "756bd410-d6e5-427b-89aa-d86c4b82d2d9";
 
 const PGX_GENE_OPTIONS = ["CYP2C19", "SLCO1B1"];
 
@@ -26,8 +24,17 @@ const PGX_PHENOTYPES_BY_GENE = {
   ],
 };
 
+const PGX_GENOTYPE_EXAMPLES_BY_GENE = {
+  CYP2C19: "e.g. *1/*1, *1/*2, *2/*2",
+  SLCO1B1: "Examples: *1/*1, *1/*5, *2/*5, *5/*5, c.521TT, c.521TC, c.521CC",
+};
+
 function getPhenotypesForGene(gene) {
   return PGX_PHENOTYPES_BY_GENE[gene] || [];
+}
+
+function getGenotypePlaceholder(gene) {
+  return PGX_GENOTYPE_EXAMPLES_BY_GENE[gene] || "Optional genotype";
 }
 
 function Dashboard() {
@@ -35,6 +42,12 @@ function Dashboard() {
 
   // Find out who is currently logged in.
   const user = getCurrentUser();
+  // Real backend patient row for this account, resolved by email.
+  const [patientId, setPatientId] = useState(null);
+  const [patientStatus, setPatientStatus] = useState({
+    status: "loading",
+    message: "",
+  });
   const [activePanel, setActivePanel] = useState(null);
   const [query, setQuery] = useState("");
   const [searchState, setSearchState] = useState({
@@ -63,20 +76,35 @@ function Dashboard() {
     status: "idle",
     message: "",
   });
+  const [editForm, setEditForm] = useState({
+    gene: "",
+    phenotype: "",
+    genotype: "",
+  });
+  const [editFormStatus, setEditFormStatus] = useState({
+    status: "idle",
+    message: "",
+  });
 
   const phenotypeOptions = getPhenotypesForGene(pgxForm.gene);
+  const genotypePlaceholder = getGenotypePlaceholder(pgxForm.gene);
+  const editPhenotypeOptions = getPhenotypesForGene(editForm.gene);
+  const editGenotypePlaceholder = getGenotypePlaceholder(editForm.gene);
 
   function handleLogout() {
     logOut();
     navigate("/"); // back to the login page
   }
 
-  async function loadPgxProfile() {
+  async function loadPgxProfile(activePatientId = patientId) {
+    if (!activePatientId) {
+      return;
+    }
+
     setPgxState((current) => ({ ...current, status: "loading", message: "" }));
 
     try {
-      // Temporary demo patient ID until real auth/patient profile is connected.
-      const data = await getPgxResults(DEMO_PATIENT_ID);
+      const data = await getPgxResults(activePatientId);
 
       if (!data.supported) {
         setPgxState({
@@ -102,7 +130,55 @@ function Dashboard() {
   }
 
   useEffect(() => {
-    loadPgxProfile();
+    let cancelled = false;
+
+    async function resolveAndLoad() {
+      if (!user?.email) {
+        setPatientStatus({
+          status: "error",
+          message: "You must be logged in to view your PGx profile.",
+        });
+        return;
+      }
+
+      setPatientStatus({ status: "loading", message: "" });
+
+      try {
+        // Map the logged-in account email to its own backend patient row.
+        const data = await resolvePatient({
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+        });
+
+        if (cancelled) {
+          return;
+        }
+
+        if (!data.supported || !data.patientId) {
+          setPatientStatus({
+            status: "error",
+            message: data.message || "Could not load your patient profile.",
+          });
+          return;
+        }
+
+        setPatientId(data.patientId);
+        setPatientStatus({ status: "success", message: "" });
+        await loadPgxProfile(data.patientId);
+      } catch (error) {
+        if (!cancelled) {
+          setPatientStatus({ status: "error", message: error.message });
+        }
+      }
+    }
+
+    resolveAndLoad();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -170,6 +246,15 @@ function Dashboard() {
       return;
     }
 
+    if (!patientId) {
+      setRiskState({
+        status: "message",
+        result: null,
+        message: "Your patient profile is still loading. Try again shortly.",
+      });
+      return;
+    }
+
     setRiskState({
       status: "loading",
       result: null,
@@ -177,9 +262,9 @@ function Dashboard() {
     });
 
     try {
+      // Risk matching reads PGx from pgx_results for this account's patientId.
       const data = await matchMedicationRisk({
-        // Temporary demo patient ID until real auth/patient profile is connected.
-        patientId: DEMO_PATIENT_ID,
+        patientId,
         medicationId: selectedMedication.id,
       });
 
@@ -187,7 +272,9 @@ function Dashboard() {
         setRiskState({
           status: "message",
           result: null,
-          message: data.message || "No matching medication risk result was found.",
+          message:
+            data.message ||
+            "No PGx data found. Please add your genetic result before checking medication risk.",
         });
         return;
       }
@@ -228,14 +315,34 @@ function Dashboard() {
   async function handleAddPgxResult(event) {
     event.preventDefault();
 
+    if (!patientId) {
+      setPgxFormStatus({
+        status: "error",
+        message: "Your patient profile is still loading. Try again shortly.",
+      });
+      return;
+    }
+
+    const geneAlreadySaved = pgxState.results.some(
+      (result) =>
+        String(result.gene).toUpperCase() === String(pgxForm.gene).toUpperCase(),
+    );
+
+    if (geneAlreadySaved) {
+      setPgxFormStatus({
+        status: "error",
+        message: `${pgxForm.gene} already exists. Use Edit Data to update it.`,
+      });
+      return;
+    }
+
     setPgxFormStatus({
       status: "loading",
       message: "",
     });
 
     try {
-      // Temporary demo patient ID until real auth/patient profile is connected.
-      const data = await savePgxResult(DEMO_PATIENT_ID, {
+      const data = await savePgxResult(patientId, {
         gene: pgxForm.gene,
         phenotype: pgxForm.phenotype,
         genotype: pgxForm.genotype,
@@ -249,15 +356,17 @@ function Dashboard() {
         return;
       }
 
-      setPgxFormStatus({
-        status: "success",
-        message: "PGx result saved.",
-      });
-      setPgxForm((current) => ({
-        ...current,
+      setPgxForm({
+        gene: "CYP2C19",
+        phenotype: "poor metabolizer",
         genotype: "",
-      }));
+      });
+      setPgxFormStatus({
+        status: "idle",
+        message: "",
+      });
       await loadPgxProfile();
+      setActivePanel(null);
     } catch (error) {
       setPgxFormStatus({
         status: "error",
@@ -266,8 +375,125 @@ function Dashboard() {
     }
   }
 
+  function handleSelectResultToEdit(result) {
+    const phenotypes = getPhenotypesForGene(result.gene);
+    const phenotype = phenotypes.includes(result.phenotype)
+      ? result.phenotype
+      : phenotypes[0] || result.phenotype;
+
+    setEditForm({
+      gene: result.gene,
+      phenotype,
+      genotype: result.genotype || "",
+    });
+    setEditFormStatus({
+      status: "idle",
+      message: "",
+    });
+  }
+
+  function handleEditFormChange(event) {
+    const { name, value } = event.target;
+
+    setEditForm((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  }
+
+  async function handleUpdatePgxResult(event) {
+    event.preventDefault();
+
+    if (!patientId) {
+      setEditFormStatus({
+        status: "error",
+        message: "Your patient profile is still loading. Try again shortly.",
+      });
+      return;
+    }
+
+    if (!editForm.gene || !editForm.phenotype) {
+      setEditFormStatus({
+        status: "error",
+        message: "Select a saved PGx result to edit.",
+      });
+      return;
+    }
+
+    setEditFormStatus({
+      status: "loading",
+      message: "",
+    });
+
+    try {
+      // savePgxResult upserts by gene, so this updates the existing row.
+      const data = await savePgxResult(patientId, {
+        gene: editForm.gene,
+        phenotype: editForm.phenotype,
+        genotype: editForm.genotype,
+      });
+
+      if (!data.supported) {
+        setEditFormStatus({
+          status: "error",
+          message: data.message || "Could not update PGx result.",
+        });
+        return;
+      }
+
+      setEditFormStatus({
+        status: "success",
+        message: `${editForm.gene} PGx result updated.`,
+      });
+      await loadPgxProfile();
+      setEditForm({
+        gene: "",
+        phenotype: "",
+        genotype: "",
+      });
+      setEditFormStatus({
+        status: "idle",
+        message: "",
+      });
+      setActivePanel(null);
+    } catch (error) {
+      setEditFormStatus({
+        status: "error",
+        message: error.message,
+      });
+    }
+  }
+
   function togglePanel(panelName) {
-    setActivePanel((current) => (current === panelName ? null : panelName));
+    setActivePanel((current) => {
+      const nextPanel = current === panelName ? null : panelName;
+
+      if (nextPanel === "edit") {
+        setEditForm({
+          gene: "",
+          phenotype: "",
+          genotype: "",
+        });
+        setEditFormStatus({
+          status: "idle",
+          message: "",
+        });
+      }
+
+      if (nextPanel === "input") {
+        setPgxForm({
+          gene: "CYP2C19",
+          phenotype: "poor metabolizer",
+          genotype: "",
+        });
+        setPgxFormStatus({
+          status: "idle",
+          message: "",
+        });
+      }
+
+      return nextPanel;
+    });
   }
 
   return (
@@ -315,8 +541,7 @@ function Dashboard() {
             <form className="pgx-form" onSubmit={handleAddPgxResult}>
               <h3>Add PGx Result</h3>
               <p className="panel-note">
-                Uses the temporary demo patient until real auth/patient profile
-                connection is added.
+                Saved to your own account's PGx profile.
               </p>
 
               <label className="search-label" htmlFor="pgx-gene">
@@ -361,7 +586,7 @@ function Dashboard() {
                 className="input"
                 type="text"
                 name="genotype"
-                placeholder="e.g. *2/*2"
+                placeholder={genotypePlaceholder}
                 value={pgxForm.genotype}
                 onChange={handlePgxFormChange}
               />
@@ -381,17 +606,134 @@ function Dashboard() {
               {pgxFormStatus.status === "error" && (
                 <p className="error">{pgxFormStatus.message}</p>
               )}
-
-              {pgxFormStatus.status === "success" && (
-                <p className="unsupported-message">{pgxFormStatus.message}</p>
-              )}
             </form>
           )}
 
           {activePanel === "edit" && (
-            <p className="unsupported-message">
-              Edit Data is a wireframe placeholder for a later MVP step.
-            </p>
+            <div className="pgx-form">
+              <h3>Edit PGx Result</h3>
+              <p className="panel-note">
+                Choose a saved result below, update phenotype/genotype, then
+                save. Gene stays the same because one result is stored per gene.
+              </p>
+
+              {pgxState.status === "loading" && (
+                <p className="search-note">Loading saved PGx results...</p>
+              )}
+
+              {pgxState.status === "error" && (
+                <p className="error">{pgxState.message}</p>
+              )}
+
+              {pgxState.status === "success" && pgxState.results.length === 0 && (
+                <p className="unsupported-message">
+                  No PGx results to edit yet. Use Input Data to add one first.
+                </p>
+              )}
+
+              {pgxState.status === "success" && pgxState.results.length > 0 && (
+                <>
+                  <div className="pgx-results-list">
+                    {pgxState.results.map((result) => (
+                      <button
+                        className={`pgx-result-card result-item${
+                          editForm.gene === result.gene ? " is-selected" : ""
+                        }`}
+                        type="button"
+                        key={result.id}
+                        onClick={() => handleSelectResultToEdit(result)}
+                      >
+                        <span>
+                          <strong>{result.gene}</strong>
+                          <br />
+                          {result.phenotype}
+                          {result.genotype ? ` · ${result.genotype}` : ""}
+                        </span>
+                        <span className="result-class">
+                          {editForm.gene === result.gene ? "Selected" : "Edit"}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {editForm.gene ? (
+                    <form onSubmit={handleUpdatePgxResult}>
+                      <label className="search-label" htmlFor="edit-pgx-gene">
+                        Gene
+                      </label>
+                      <input
+                        id="edit-pgx-gene"
+                        className="input"
+                        type="text"
+                        name="gene"
+                        value={editForm.gene}
+                        readOnly
+                      />
+
+                      <label
+                        className="search-label"
+                        htmlFor="edit-pgx-phenotype"
+                      >
+                        Phenotype
+                      </label>
+                      <select
+                        id="edit-pgx-phenotype"
+                        className="input"
+                        name="phenotype"
+                        value={editForm.phenotype}
+                        onChange={handleEditFormChange}
+                      >
+                        {editPhenotypeOptions.map((phenotype) => (
+                          <option key={phenotype} value={phenotype}>
+                            {phenotype}
+                          </option>
+                        ))}
+                      </select>
+
+                      <label
+                        className="search-label"
+                        htmlFor="edit-pgx-genotype"
+                      >
+                        Genotype (optional)
+                      </label>
+                      <input
+                        id="edit-pgx-genotype"
+                        className="input"
+                        type="text"
+                        name="genotype"
+                        placeholder={editGenotypePlaceholder}
+                        value={editForm.genotype}
+                        onChange={handleEditFormChange}
+                      />
+
+                      <button
+                        className="btn"
+                        type="submit"
+                        disabled={editFormStatus.status === "loading"}
+                      >
+                        Update PGx Result
+                      </button>
+                    </form>
+                  ) : (
+                    <p className="unsupported-message">
+                      Select a saved PGx result above to edit it.
+                    </p>
+                  )}
+                </>
+              )}
+
+              {editFormStatus.status === "loading" && (
+                <p className="search-note">Updating PGx result...</p>
+              )}
+
+              {editFormStatus.status === "error" && (
+                <p className="error">{editFormStatus.message}</p>
+              )}
+
+              {editFormStatus.status === "success" && (
+                <p className="unsupported-message">{editFormStatus.message}</p>
+              )}
+            </div>
           )}
 
           {activePanel === "profile" && (
@@ -402,6 +744,14 @@ function Dashboard() {
 
           <section className="panel-section">
             <h3 className="panel-heading">My PGx Profile</h3>
+
+            {patientStatus.status === "loading" && (
+              <p className="search-note">Loading your patient profile...</p>
+            )}
+
+            {patientStatus.status === "error" && (
+              <p className="error">{patientStatus.message}</p>
+            )}
 
             {pgxState.status === "loading" && (
               <p className="search-note">Loading PGx profile...</p>
