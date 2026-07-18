@@ -63,10 +63,10 @@ PHENOTYPE_ALIASES = {
     "normal metabolizer": "normal metabolizer",
     "rapid metabolizer": "rapid metabolizer",
     "ultrarapid metabolizer": "ultrarapid metabolizer",
-    "decreased function": "decreased function",
-    "possible decreased function": "decreased function",
     "normal function": "normal function",
-    "increased function": "increased function",
+    "possible decreased function": "possible decreased function",
+    "decreased function": "decreased function",
+    "poor function": "poor function",
 }
 
 ALLOWED_RISK_LEVELS = {
@@ -76,68 +76,299 @@ ALLOWED_RISK_LEVELS = {
     "insufficient_data",
 }
 
-MVP_COLLECTOR_RECORDS = [
+DEFAULT_RECOMMENDED_ACTION = (
+    "Review this result with a clinician before making medication changes."
+)
+
+NOT_MEDICAL_ADVICE_NOTE = (
+    " This information is for educational MVP purposes only and is not medical advice."
+)
+
+# Curated MVP starter rules for the three supported medications only.
+# Risk levels are simplified educational labels, not clinical advice.
+MVP_RULE_SPECS = [
+    # clopidogrel + CYP2C19
     {
-        "sourceName": "Medune MVP curated CPIC review starter",
-        "sourceType": "curated_static",
-        "sourceUrl": "https://cpicpgx.org/guidelines/",
-        "medication": {
-            "genericName": "clopidogrel",
-            "brandName": "Plavix",
-            "drugClass": "antiplatelet",
-        },
+        "genericName": "clopidogrel",
+        "brandName": "Plavix",
+        "drugClass": "antiplatelet",
         "gene": "CYP2C19",
         "phenotype": "poor metabolizer",
         "riskLevel": "potential_concern",
-        "rawSummary": "CYP2C19 poor metabolizer status may reduce clopidogrel activation.",
-        "patientSummary": "Your CYP2C19 result may affect how your body responds to clopidogrel.",
-        "clinicianSummary": "CYP2C19 poor metabolizer status may reduce clopidogrel activation.",
-        "recommendedAction": "Review this result with a clinician before making medication changes.",
-        "notes": "Curated MVP starter candidate for review; not clinical approval.",
-    },
-    {
-        "sourceName": "Medune MVP curated CPIC review starter",
-        "sourceType": "curated_static",
-        "sourceUrl": "https://cpicpgx.org/guidelines/",
-        "medication": {
-            "genericName": "citalopram",
-            "brandName": "Celexa",
-            "drugClass": "antidepressant",
-        },
-        "gene": "CYP2C19",
-        "phenotype": "poor metabolizer",
-        "riskLevel": "potential_concern",
-        "rawSummary": "CYP2C19 poor metabolizer status may increase citalopram exposure.",
-        "patientSummary": "Your CYP2C19 result may affect how your body processes citalopram.",
-        "clinicianSummary": "CYP2C19 poor metabolizer status may increase citalopram exposure.",
-        "recommendedAction": (
-            "Review this result with a clinician to discuss medication selection, "
-            "dosing, or monitoring."
+        "patientSummary": (
+            "Your CYP2C19 result suggests your body may activate clopidogrel "
+            "less than expected."
         ),
-        "notes": "Curated MVP starter candidate for review; not clinical approval.",
+        "clinicianSummary": (
+            "CYP2C19 poor metabolizer status may reduce clopidogrel activation "
+            "and antiplatelet response."
+        ),
     },
     {
-        "sourceName": "Medune MVP curated CPIC review starter",
-        "sourceType": "curated_static",
-        "sourceUrl": "https://cpicpgx.org/guidelines/",
-        "medication": {
-            "genericName": "simvastatin",
-            "brandName": "Zocor",
-            "drugClass": "statin",
-        },
+        "genericName": "clopidogrel",
+        "brandName": "Plavix",
+        "drugClass": "antiplatelet",
+        "gene": "CYP2C19",
+        "phenotype": "intermediate metabolizer",
+        "riskLevel": "caution",
+        "patientSummary": (
+            "Your CYP2C19 result suggests your body may activate clopidogrel "
+            "somewhat less than expected."
+        ),
+        "clinicianSummary": (
+            "CYP2C19 intermediate metabolizer status may reduce clopidogrel "
+            "activation compared with normal metabolizer status."
+        ),
+    },
+    {
+        "genericName": "clopidogrel",
+        "brandName": "Plavix",
+        "drugClass": "antiplatelet",
+        "gene": "CYP2C19",
+        "phenotype": "normal metabolizer",
+        "riskLevel": "low_risk",
+        "patientSummary": (
+            "Your CYP2C19 result does not currently suggest a higher concern "
+            "for how your body activates clopidogrel."
+        ),
+        "clinicianSummary": (
+            "CYP2C19 normal metabolizer status is generally associated with "
+            "expected clopidogrel activation."
+        ),
+    },
+    {
+        "genericName": "clopidogrel",
+        "brandName": "Plavix",
+        "drugClass": "antiplatelet",
+        "gene": "CYP2C19",
+        "phenotype": "rapid metabolizer",
+        "riskLevel": "low_risk",
+        "patientSummary": (
+            "Your CYP2C19 result does not currently suggest a higher concern "
+            "for how your body activates clopidogrel."
+        ),
+        "clinicianSummary": (
+            "CYP2C19 rapid metabolizer status is generally associated with "
+            "adequate clopidogrel activation."
+        ),
+    },
+    {
+        "genericName": "clopidogrel",
+        "brandName": "Plavix",
+        "drugClass": "antiplatelet",
+        "gene": "CYP2C19",
+        "phenotype": "ultrarapid metabolizer",
+        "riskLevel": "low_risk",
+        "patientSummary": (
+            "Your CYP2C19 result does not currently suggest a higher concern "
+            "for how your body activates clopidogrel."
+        ),
+        "clinicianSummary": (
+            "CYP2C19 ultrarapid metabolizer status is generally associated with "
+            "adequate clopidogrel activation."
+        ),
+    },
+    # citalopram + CYP2C19
+    {
+        "genericName": "citalopram",
+        "brandName": "Celexa",
+        "drugClass": "antidepressant",
+        "gene": "CYP2C19",
+        "phenotype": "poor metabolizer",
+        "riskLevel": "potential_concern",
+        "patientSummary": (
+            "Your CYP2C19 result suggests your body may process citalopram "
+            "more slowly than expected."
+        ),
+        "clinicianSummary": (
+            "CYP2C19 poor metabolizer status may increase citalopram exposure."
+        ),
+    },
+    {
+        "genericName": "citalopram",
+        "brandName": "Celexa",
+        "drugClass": "antidepressant",
+        "gene": "CYP2C19",
+        "phenotype": "intermediate metabolizer",
+        "riskLevel": "caution",
+        "patientSummary": (
+            "Your CYP2C19 result suggests your body may process citalopram "
+            "somewhat differently than expected."
+        ),
+        "clinicianSummary": (
+            "CYP2C19 intermediate metabolizer status may alter citalopram exposure."
+        ),
+    },
+    {
+        "genericName": "citalopram",
+        "brandName": "Celexa",
+        "drugClass": "antidepressant",
+        "gene": "CYP2C19",
+        "phenotype": "normal metabolizer",
+        "riskLevel": "low_risk",
+        "patientSummary": (
+            "Your CYP2C19 result does not currently suggest a higher concern "
+            "for how your body processes citalopram."
+        ),
+        "clinicianSummary": (
+            "CYP2C19 normal metabolizer status is generally associated with "
+            "expected citalopram exposure."
+        ),
+    },
+    {
+        "genericName": "citalopram",
+        "brandName": "Celexa",
+        "drugClass": "antidepressant",
+        "gene": "CYP2C19",
+        "phenotype": "rapid metabolizer",
+        "riskLevel": "caution",
+        "patientSummary": (
+            "Your CYP2C19 result suggests your body may process citalopram "
+            "more quickly than expected."
+        ),
+        "clinicianSummary": (
+            "CYP2C19 rapid metabolizer status may reduce citalopram exposure "
+            "and treatment response in some people."
+        ),
+    },
+    {
+        "genericName": "citalopram",
+        "brandName": "Celexa",
+        "drugClass": "antidepressant",
+        "gene": "CYP2C19",
+        "phenotype": "ultrarapid metabolizer",
+        "riskLevel": "caution",
+        "patientSummary": (
+            "Your CYP2C19 result suggests your body may process citalopram "
+            "more quickly than expected."
+        ),
+        "clinicianSummary": (
+            "CYP2C19 ultrarapid metabolizer status may reduce citalopram exposure "
+            "and treatment response in some people."
+        ),
+    },
+    # simvastatin / Zocor + SLCO1B1
+    {
+        "genericName": "simvastatin",
+        "brandName": "Zocor",
+        "drugClass": "statin",
+        "gene": "SLCO1B1",
+        "phenotype": "normal function",
+        "riskLevel": "low_risk",
+        "patientSummary": (
+            "Your SLCO1B1 result does not show a major PGx-related concern "
+            "for simvastatin in this MVP."
+        ),
+        "clinicianSummary": (
+            "SLCO1B1 normal function is not expected to increase "
+            "simvastatin-associated muscle symptom risk in this simplified MVP rule set."
+        ),
+        "recommendedAction": (
+            "Continue to review medication decisions with a clinician."
+        ),
+    },
+    {
+        "genericName": "simvastatin",
+        "brandName": "Zocor",
+        "drugClass": "statin",
+        "gene": "SLCO1B1",
+        "phenotype": "possible decreased function",
+        "riskLevel": "caution",
+        "patientSummary": (
+            "Your SLCO1B1 result may increase the chance of muscle-related "
+            "side effects with simvastatin."
+        ),
+        "clinicianSummary": (
+            "SLCO1B1 possible decreased function may increase "
+            "simvastatin-associated muscle symptom risk."
+        ),
+        "recommendedAction": (
+            "Review this result with a clinician before making medication changes."
+        ),
+    },
+    {
+        "genericName": "simvastatin",
+        "brandName": "Zocor",
+        "drugClass": "statin",
         "gene": "SLCO1B1",
         "phenotype": "decreased function",
         "riskLevel": "caution",
-        "rawSummary": "SLCO1B1 decreased function may increase simvastatin exposure and myopathy risk.",
         "patientSummary": (
-            "Your SLCO1B1 result may affect your risk of muscle-related "
+            "Your SLCO1B1 result may increase the chance of muscle-related "
             "side effects with simvastatin."
         ),
-        "clinicianSummary": "SLCO1B1 decreased function may increase simvastatin exposure and myopathy risk.",
-        "recommendedAction": "Review this result with a clinician to discuss risk, monitoring, or alternatives.",
-        "notes": "Curated MVP starter candidate for review; not clinical approval.",
+        "clinicianSummary": (
+            "SLCO1B1 decreased function may increase "
+            "simvastatin-associated muscle symptom risk."
+        ),
+        "recommendedAction": (
+            "Review this result with a clinician before making medication changes."
+        ),
+    },
+    {
+        "genericName": "simvastatin",
+        "brandName": "Zocor",
+        "drugClass": "statin",
+        "gene": "SLCO1B1",
+        "phenotype": "poor function",
+        "riskLevel": "potential_concern",
+        "patientSummary": (
+            "Your SLCO1B1 result may indicate a higher chance of muscle-related "
+            "side effects with simvastatin."
+        ),
+        "clinicianSummary": (
+            "SLCO1B1 poor function may increase "
+            "simvastatin-associated muscle symptom risk."
+        ),
+        "recommendedAction": (
+            "Review this result with a clinician before making medication changes."
+        ),
     },
 ]
+
+
+def rule_recommended_action(spec: dict) -> str:
+    return spec.get("recommendedAction") or DEFAULT_RECOMMENDED_ACTION
+
+
+def rule_patient_summary(spec: dict) -> str:
+    return f"{spec['patientSummary']}{NOT_MEDICAL_ADVICE_NOTE}"
+
+
+def rule_clinician_summary(spec: dict) -> str:
+    return f"{spec['clinicianSummary']}{NOT_MEDICAL_ADVICE_NOTE}"
+
+
+def build_mvp_collector_records() -> list[dict]:
+    records = []
+    for spec in MVP_RULE_SPECS:
+        records.append(
+            {
+                "sourceName": "Medune MVP curated CPIC review starter",
+                "sourceType": "curated_static",
+                "sourceUrl": "https://cpicpgx.org/guidelines/",
+                "medication": {
+                    "genericName": spec["genericName"],
+                    "brandName": spec["brandName"],
+                    "drugClass": spec["drugClass"],
+                },
+                "gene": spec["gene"],
+                "phenotype": spec["phenotype"],
+                "riskLevel": spec["riskLevel"],
+                "rawSummary": rule_clinician_summary(spec),
+                "patientSummary": rule_patient_summary(spec),
+                "clinicianSummary": rule_clinician_summary(spec),
+                "recommendedAction": rule_recommended_action(spec),
+                "notes": (
+                    "Curated MVP starter candidate for review; not clinical approval. "
+                    "Not medical advice."
+                ),
+            }
+        )
+    return records
+
+
+MVP_COLLECTOR_RECORDS = build_mvp_collector_records()
 
 
 @dataclass(frozen=True)
@@ -418,92 +649,21 @@ def get_manual_mvp_rules(mark_approved: bool = False) -> list[RuleRecord]:
 
     return [
         RuleRecord(
-            medication_generic_name="clopidogrel",
-            brand_name="Plavix",
-            drug_class="antiplatelet",
-            gene="CYP2C19",
-            phenotype="poor metabolizer",
-            risk_level="potential_concern",
-            patient_summary="Your CYP2C19 result may affect how your body responds to clopidogrel.",
-            clinician_summary="CYP2C19 poor metabolizer status may reduce clopidogrel activation.",
-            recommended_action="Review this result with a clinician before making medication changes.",
+            medication_generic_name=spec["genericName"],
+            brand_name=spec["brandName"],
+            drug_class=spec["drugClass"],
+            gene=spec["gene"],
+            phenotype=spec["phenotype"],
+            risk_level=spec["riskLevel"],
+            patient_summary=rule_patient_summary(spec),
+            clinician_summary=rule_clinician_summary(spec),
+            recommended_action=rule_recommended_action(spec),
             evidence_source="CPIC",
             evidence_url=evidence_url,
-            rule_version="mvp-v1",
+            rule_version="mvp-v2",
             review_status=status,
-        ),
-        RuleRecord(
-            medication_generic_name="clopidogrel",
-            brand_name="Plavix",
-            drug_class="antiplatelet",
-            gene="CYP2C19",
-            phenotype="intermediate metabolizer",
-            risk_level="caution",
-            patient_summary="Your CYP2C19 result may affect how your body responds to clopidogrel.",
-            clinician_summary=(
-                "CYP2C19 intermediate metabolizer status may reduce clopidogrel "
-                "activation compared with normal metabolizer status."
-            ),
-            recommended_action="Review this result with a clinician to discuss whether medication review is needed.",
-            evidence_source="CPIC",
-            evidence_url=evidence_url,
-            rule_version="mvp-v1",
-            review_status=status,
-        ),
-        RuleRecord(
-            medication_generic_name="citalopram",
-            brand_name="Celexa",
-            drug_class="antidepressant",
-            gene="CYP2C19",
-            phenotype="poor metabolizer",
-            risk_level="potential_concern",
-            patient_summary="Your CYP2C19 result may affect how your body processes citalopram.",
-            clinician_summary="CYP2C19 poor metabolizer status may increase citalopram exposure.",
-            recommended_action=(
-                "Review this result with a clinician to discuss medication selection, "
-                "dosing, or monitoring."
-            ),
-            evidence_source="CPIC",
-            evidence_url=evidence_url,
-            rule_version="mvp-v1",
-            review_status=status,
-        ),
-        RuleRecord(
-            medication_generic_name="citalopram",
-            brand_name="Celexa",
-            drug_class="antidepressant",
-            gene="CYP2C19",
-            phenotype="intermediate metabolizer",
-            risk_level="caution",
-            patient_summary="Your CYP2C19 result may affect how your body processes citalopram.",
-            clinician_summary="CYP2C19 intermediate metabolizer status may alter citalopram exposure.",
-            recommended_action=(
-                "Review this result with a clinician if you are currently taking "
-                "or considering this medication."
-            ),
-            evidence_source="CPIC",
-            evidence_url=evidence_url,
-            rule_version="mvp-v1",
-            review_status=status,
-        ),
-        RuleRecord(
-            medication_generic_name="simvastatin",
-            brand_name="Zocor",
-            drug_class="statin",
-            gene="SLCO1B1",
-            phenotype="decreased function",
-            risk_level="caution",
-            patient_summary=(
-                "Your SLCO1B1 result may affect your risk of muscle-related "
-                "side effects with simvastatin."
-            ),
-            clinician_summary="SLCO1B1 decreased function may increase simvastatin exposure and myopathy risk.",
-            recommended_action="Review this result with a clinician to discuss risk, monitoring, or alternatives.",
-            evidence_source="CPIC",
-            evidence_url=evidence_url,
-            rule_version="mvp-v1",
-            review_status=status,
-        ),
+        )
+        for spec in MVP_RULE_SPECS
     ]
 
 
@@ -861,7 +1021,11 @@ def main() -> None:
         "--output",
         help="Output JSON path for --collect-mvp or --normalize.",
     )
-    parser.add_argument("--seed-mvp", action="store_true", help="Insert the five MVP starter rules.")
+    parser.add_argument(
+        "--seed-mvp",
+        action="store_true",
+        help="Insert the expanded MVP starter rules for CYP2C19 and SLCO1B1 phenotypes.",
+    )
     parser.add_argument(
         "--mark-approved",
         action="store_true",

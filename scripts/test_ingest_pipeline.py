@@ -9,7 +9,7 @@ import ingest_medune_mvp_data as ingest
 
 
 class IngestPipelineTests(unittest.TestCase):
-    def test_collect_mvp_writes_three_raw_records(self):
+    def test_collect_mvp_writes_expanded_raw_records(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             output = Path(temp_dir) / "raw.json"
 
@@ -17,12 +17,17 @@ class IngestPipelineTests(unittest.TestCase):
 
             payload = json.loads(output.read_text(encoding="utf-8"))
             self.assertEqual(payload["collectorVersion"], ingest.COLLECTOR_VERSION)
-            self.assertEqual(len(payload["records"]), 3)
+            self.assertEqual(len(payload["records"]), len(ingest.MVP_RULE_SPECS))
+            self.assertEqual(len(payload["records"]), 14)
             medications = {
                 record["medication"]["genericName"]
                 for record in payload["records"]
             }
             self.assertEqual(medications, {"clopidogrel", "citalopram", "simvastatin"})
+            phenotypes = {record["phenotype"] for record in payload["records"]}
+            self.assertIn("ultrarapid metabolizer", phenotypes)
+            self.assertIn("poor function", phenotypes)
+            self.assertIn("possible decreased function", phenotypes)
 
     def test_normalize_creates_expected_fields(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -53,8 +58,8 @@ class IngestPipelineTests(unittest.TestCase):
 
             summary = output.getvalue()
             self.assertIn("Medications: 3", summary)
-            self.assertIn("Rule candidates: 3", summary)
-            self.assertIn("Pending-review records: 3", summary)
+            self.assertIn("Rule candidates: 14", summary)
+            self.assertIn("Pending-review records: 14", summary)
 
     def test_invalid_raw_input_fails_clearly(self):
         with tempfile.TemporaryDirectory() as temp_dir:

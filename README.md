@@ -80,7 +80,7 @@ MEDUNE_INGEST_USER_AGENT=MeduneMVPIngestion/0.1 contact=configure-user-agent
 
 ## Load MVP Starter Rules
 
-Insert the five MVP rules as `pending_review`:
+Insert the expanded MVP phenotype rules as `pending_review`:
 
 ```powershell
 python scripts\ingest_medune_mvp_data.py --seed-mvp
@@ -161,6 +161,11 @@ The importer only normalizes these MVP medications:
 - citalopram / Celexa / CYP2C19
 - simvastatin / Zocor / SLCO1B1
 
+Supported starter phenotypes:
+
+- CYP2C19: poor, intermediate, normal, rapid, and ultrarapid metabolizer
+- SLCO1B1: normal function, possible decreased function, decreased function, poor function
+
 ## Backend Medication Search API
 
 The backend exposes a minimal medication search endpoint for the current MVP:
@@ -207,7 +212,7 @@ psql medune -f db/schema.sql
 python scripts\ingest_medune_mvp_data.py --seed-mvp
 ```
 
-The seed command inserts the starter rules as `pending_review`, and also upserts the MVP medication rows as active medications.
+The seed command inserts the expanded CYP2C19 and SLCO1B1 phenotype rules as `pending_review`, and also upserts the MVP medication rows as active medications.
 
 ### Verify MVP Database Readiness
 
