@@ -37,6 +37,29 @@ function getGenotypePlaceholder(gene) {
   return PGX_GENOTYPE_EXAMPLES_BY_GENE[gene] || "Optional genotype";
 }
 
+// Returns the risk label formatted with proper spaces and capitalization
+function formatRiskLevelLabel(riskLevel) {
+  return String(riskLevel || "")
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+// Returns the classname for the color-coded risk level card based on the risk level
+function getRiskResultClassName(riskLevel) {
+  switch (riskLevel) {
+    case "potential_concern":
+      return "risk-result-card risk-result-card--danger";
+    case "caution":
+      return "risk-result-card risk-result-card--warning";
+    case "low_risk":
+      return "risk-result-card risk-result-card--success";
+    default:
+      return "risk-result-card";
+  }
+}
+
 function Dashboard() {
   const navigate = useNavigate();
 
@@ -868,12 +891,16 @@ function Dashboard() {
           </section>
 
           {riskState.status === "success" && riskState.result && (
-            <section className="risk-result-card">
+            <section
+              className={getRiskResultClassName(riskState.result.riskLevel)}
+            >
               <h3 className="panel-heading">Medication Risk Result</h3>
               <dl className="risk-result-list">
-                <div>
+                <div className="risk-level-field">
                   <dt>Risk Level</dt>
-                  <dd>{riskState.result.riskLevel}</dd>
+                  <dd className="risk-level-panel">
+                    {formatRiskLevelLabel(riskState.result.riskLevel)}
+                  </dd>
                 </div>
                 <div>
                   <dt>Medication</dt>
