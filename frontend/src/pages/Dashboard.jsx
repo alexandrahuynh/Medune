@@ -889,8 +889,9 @@ function Dashboard() {
               </div>
             )}
           </section>
+        </div>
 
-          {riskState.status === "success" && riskState.result && (
+        {riskState.status === "success" && riskState.result && (
             <section
               className={getRiskResultClassName(riskState.result.riskLevel)}
             >
@@ -902,35 +903,32 @@ function Dashboard() {
                     {formatRiskLevelLabel(riskState.result.riskLevel)}
                   </dd>
                 </div>
-                <div>
+                <div className="risk-meta-row">
                   <dt>Medication</dt>
+                  <dt>Gene</dt>
+                  <dt>Phenotype</dt>
                   <dd>
                     {riskState.result.medication?.genericName}
                     {riskState.result.medication?.brandName
                       ? ` (${riskState.result.medication.brandName})`
                       : ""}
                   </dd>
-                </div>
-                <div>
-                  <dt>Gene</dt>
                   <dd>{riskState.result.gene}</dd>
-                </div>
-                <div>
-                  <dt>Phenotype</dt>
                   <dd>{riskState.result.phenotype}</dd>
                 </div>
-                <div>
-                  <dt>Patient Summary</dt>
-                  <dd>{riskState.result.patientSummary}</dd>
-                </div>
-                <div>
-                  <dt>Recommended Action</dt>
-                  <dd>{riskState.result.recommendedAction}</dd>
+                <div className="risk-summary-panel">
+                  <div>
+                    <h3 className="panel-heading">Patient Summary</h3>
+                    <dd>{riskState.result.patientSummary}</dd>
+                  </div>
+                  <div>
+                    <dt>Recommended Action</dt>
+                    <dd>{riskState.result.recommendedAction}</dd>
+                  </div>
                 </div>
               </dl>
             </section>
           )}
-        </div>
       </main>
     </div>
   );

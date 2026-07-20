@@ -349,9 +349,10 @@
 .risk-result-card {
   padding: 18px 16px;
   border: 2px solid var(--teal);
-  border-radius: 20px;
+  border-radius: 28px;
   background: #ffffff;
   text-align: left;
+  margin-top: 24px;
 }
 
 .risk-result-card--danger {
@@ -414,10 +415,19 @@
   gap: 12px;
 }
 
-.risk-result-list div {
+.risk-result-list div:not(.risk-meta-row) {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.risk-result-list .risk-meta-row {
+  display: inline-grid;
+  grid-template-columns: repeat(3, auto);
+  column-gap: 24px;
+  row-gap: 4px;
+  align-self: flex-start;
+  width: fit-content;
 }
 
 .risk-result-list dt {
@@ -431,6 +441,32 @@
   color: var(--text-dark);
   font-size: 15px;
   overflow-wrap: anywhere;
+}
+
+.risk-summary-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 14px 16px;
+  border: 2px solid var(--teal);
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.risk-summary-panel > div {
+  padding: 12px 0;
+}
+
+.risk-summary-panel > div:first-child {
+  padding-top: 0;
+}
+
+.risk-summary-panel > div:last-child {
+  padding-bottom: 0;
+}
+
+.risk-summary-panel > div + div {
+  border-top: 1px solid #e2e8f0;
 }
 
 .risk-result-card .risk-result-list dd.risk-level-panel {
