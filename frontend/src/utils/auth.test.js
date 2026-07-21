@@ -25,3 +25,15 @@ test("login uses cookie credentials and captures returned CSRF token", async () 
   expect(fetch.mock.calls[0][1].credentials).toBe("include");
   expect(getAuthHeaders()).toEqual({ "X-CSRF-Token": "login-csrf" });
 });
+
+test("login reports a useful error when the backend is unavailable", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+
+  const result = await logIn("a@example.com", "long-enough-password");
+
+  expect(result).toEqual({
+    ok: false,
+    error: "Unable to reach the Medune server. Confirm the backend is running.",
+    data: null,
+  });
+});

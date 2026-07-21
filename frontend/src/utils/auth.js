@@ -6,15 +6,19 @@ export function getAuthHeaders() {
 }
 
 async function authRequest(path, body) {
-  const response = await fetch(`${API_BASE_URL}/api/auth/${path}`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-    body: JSON.stringify(body),
-  });
-  const data = await response.json();
-  if (data.csrfToken) csrfToken = data.csrfToken;
-  return { ok: response.ok && data.supported, error: data.message || "Authentication failed.", data };
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/auth/${path}`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+      body: JSON.stringify(body),
+    });
+    const data = await response.json();
+    if (data.csrfToken) csrfToken = data.csrfToken;
+    return { ok: response.ok && data.supported, error: data.message || "Authentication failed.", data };
+  } catch {
+    return { ok: false, error: "Unable to reach the Medune server. Confirm the backend is running.", data: null };
+  }
 }
 
 export function signUp(firstName, lastName, email, password) {
