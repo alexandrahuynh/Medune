@@ -1,8 +1,11 @@
+import { getAuthHeaders } from "../utils/auth";
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
 
-export async function getPgxResults(patientId) {
+export async function getPgxResults() {
   const response = await fetch(
-    `${API_BASE_URL}/api/patients/${encodeURIComponent(patientId)}/pgx-results`,
+    `${API_BASE_URL}/api/patients/me/pgx-results`,
+    { headers: getAuthHeaders(), credentials: "include" },
   );
 
   if (!response.ok) {
@@ -12,13 +15,15 @@ export async function getPgxResults(patientId) {
   return response.json();
 }
 
-export async function savePgxResult(patientId, { gene, phenotype, genotype }) {
+export async function savePgxResult(_patientId, { gene, phenotype, genotype }) {
   const response = await fetch(
-    `${API_BASE_URL}/api/patients/${encodeURIComponent(patientId)}/pgx-results`,
+    `${API_BASE_URL}/api/patients/me/pgx-results`,
     {
       method: "POST",
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
+        ...getAuthHeaders(),
       },
       body: JSON.stringify({ gene, phenotype, genotype }),
     },

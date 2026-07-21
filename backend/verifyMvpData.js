@@ -10,9 +10,12 @@ dotenv.config({
 const { Pool } = pg;
 
 const REQUIRED_TABLES = [
+  "users",
   "medications",
   "drug_gene_rules",
   "patients",
+  "patient_medications",
+  "user_sessions",
   "pgx_results",
   "risk_results",
 ];

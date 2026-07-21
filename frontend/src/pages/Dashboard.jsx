@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { searchMedications } from "../api/medications";
-import { resolvePatient } from "../api/patients";
 import { getPgxResults, savePgxResult } from "../api/pgx";
 import { matchMedicationRisk } from "../api/risk";
-import { getCurrentUser, logOut } from "../utils/auth";
+import { useAuth } from "../auth/authContextValue";
+import MedicationList from "../components/MedicationList";
 
 const PGX_GENE_OPTIONS = ["CYP2C19", "SLCO1B1"];
 
@@ -62,14 +62,13 @@ function getRiskResultClassName(riskLevel) {
 
 function Dashboard() {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
-  // Find out who is currently logged in.
-  const user = getCurrentUser();
-  // Real backend patient row for this account, resolved by email.
-  const [patientId, setPatientId] = useState(null);
-  const [patientStatus, setPatientStatus] = useState({
-    status: "loading",
-    message: "",
+  // The server still derives ownership from the bearer session; this ID is UI state only.
+  const patientId = user?.patientId || null;
+  const [patientStatus] = useState({
+    status: patientId ? "success" : "error",
+    message: patientId ? "" : "Your authenticated patient profile is unavailable.",
   });
   const [activePanel, setActivePanel] = useState(null);
   const [query, setQuery] = useState("");
@@ -114,8 +113,8 @@ function Dashboard() {
   const editPhenotypeOptions = getPhenotypesForGene(editForm.gene);
   const editGenotypePlaceholder = getGenotypePlaceholder(editForm.gene);
 
-  function handleLogout() {
-    logOut();
+  async function handleLogout() {
+    await logout();
     navigate("/"); // back to the login page
   }
 
@@ -153,54 +152,8 @@ function Dashboard() {
   }
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function resolveAndLoad() {
-      if (!user?.email) {
-        setPatientStatus({
-          status: "error",
-          message: "You must be logged in to view your PGx profile.",
-        });
-        return;
-      }
-
-      setPatientStatus({ status: "loading", message: "" });
-
-      try {
-        // Map the logged-in account email to its own backend patient row.
-        const data = await resolvePatient({
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-        });
-
-        if (cancelled) {
-          return;
-        }
-
-        if (!data.supported || !data.patientId) {
-          setPatientStatus({
-            status: "error",
-            message: data.message || "Could not load your patient profile.",
-          });
-          return;
-        }
-
-        setPatientId(data.patientId);
-        setPatientStatus({ status: "success", message: "" });
-        await loadPgxProfile(data.patientId);
-      } catch (error) {
-        if (!cancelled) {
-          setPatientStatus({ status: "error", message: error.message });
-        }
-      }
-    }
-
-    resolveAndLoad();
-
-    return () => {
-      cancelled = true;
-    };
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (patientId) loadPgxProfile(patientId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -889,6 +842,8 @@ function Dashboard() {
               </div>
             )}
           </section>
+
+          <MedicationList patientId={patientId} />
         </div>
 
         {riskState.status === "success" && riskState.result && (
