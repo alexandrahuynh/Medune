@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { signUp } from "../utils/auth";
+import { useAuth } from "../auth/authContextValue";
 
 function Signup() {
   const navigate = useNavigate();
+  const { signup } = useAuth();
 
   // Form fields.
   const [firstName, setFirstName] = useState("");
@@ -14,7 +15,7 @@ function Signup() {
   // Message shown when something goes wrong.
   const [error, setError] = useState("");
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault(); // stop the page from reloading
 
     // Basic validation: no empty fields.
@@ -24,7 +25,7 @@ function Signup() {
     }
 
     // Try to create the account using the localStorage helper.
-    const result = signUp(firstName, lastName, email, password);
+    const result = await signup(firstName, lastName, email, password);
     if (!result.ok) {
       setError(result.error);
       return;
@@ -65,6 +66,7 @@ function Signup() {
         <input
           className="input"
           type="password"
+          maxLength="128"
           placeholder="Password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}

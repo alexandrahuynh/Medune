@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { logIn } from "../utils/auth";
+import { useAuth } from "../auth/authContextValue";
 
 function Login() {
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   // Form fields.
   const [email, setEmail] = useState("");
@@ -15,7 +16,7 @@ function Login() {
   // Message shown when something goes wrong.
   const [error, setError] = useState("");
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault(); // stop the page from reloading
 
     // Basic validation: no empty fields.
@@ -25,7 +26,7 @@ function Login() {
     }
 
     // Try to log in using the localStorage helper.
-    const result = logIn(email, password);
+    const result = await login(email, password);
     if (!result.ok) {
       setError(result.error);
       return;
@@ -53,6 +54,7 @@ function Login() {
           <input
             className="input"
             type={showPassword ? "text" : "password"}
+            maxLength="128"
             placeholder="Password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}

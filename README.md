@@ -166,6 +166,83 @@ Supported starter phenotypes:
 - CYP2C19: poor, intermediate, normal, rapid, and ultrarapid metabolizer
 - SLCO1B1: normal function, possible decreased function, decreased function, poor function
 
+## Authenticated Medication List
+
+Signed-in users can search the three MVP medications and add several of them to
+`My medications`. The list is stored in PostgreSQL's existing
+`patient_medications` table. The row UUID is the stable list-item identifier;
+the `(patient_id, medication_id)` unique constraint prevents duplicates across
+sessions. Users can remove an item or edit the fields supported by the current
+model: status (`active`, `past`, or `considering`) and an optional note of up to
+500 characters.
+
+Medication and PGx endpoints derive the patient from a hashed server-side
+session; the client does not send an authority-bearing patient ID. Registration
+stores a scrypt password hash, login creates a random 12-hour token in an
+HttpOnly SameSite cookie, and logout revokes it. Production cookies are also
+`Secure`. Apply `db/schema.sql` before using this workflow.
+
+### Medication safety data
+
+The repository has no clinically reviewed, versioned adverse-reaction dataset.
+Medune therefore does not display fixture side effects, urgency advice, numeric
+generalized risk scores, or generalized risk labels. The provider returns
+`score: null`, `level: unknown`, and `label: Not evaluated`.
+
+Side-effect presentation and generalized medication-risk ratings are deferred
+requirements, not completed clinical features.
+
+Before side effects can be enabled, every record must include exact versioned
+provenance, incidence context, reviewer identity, review date, and approval
+status.
+
+### Medication-list API
+
+```text
+POST   /api/auth/register
+POST   /api/auth/login
+POST   /api/auth/logout
+GET    /api/auth/me
+GET    /api/patients/me/medications
+POST   /api/patients/me/medications
+PATCH  /api/patients/me/medications/:itemId
+DELETE /api/patients/me/medications/:itemId
+```
+
+Apply `db/schema.sql` to older local databases before using the feature. The
+migration adds a nullable password hash to existing users and creates the
+session table without deleting existing data. Preserve passwordless users and
+their existing patient data by setting `MEDUNE_ENROLL_EMAIL` and
+`MEDUNE_ENROLL_PASSWORD`, then running `npm.cmd run enroll:user` from `backend`.
+
+For an existing database, apply
+`db/migrations/002_auth_and_patient_uniqueness.sql`. It consolidates duplicate
+patient rows into the oldest patient for each user, merges PGx and medication
+records, repoints risk history, and then enforces one patient per user. Review a
+database backup before applying any production migration.
+
+The frontend bootstraps authentication exclusively through `GET /api/auth/me`;
+localStorage is not an authentication source. State-changing requests require
+the configured frontend `Origin` and a session-bound `X-CSRF-Token`. Login and
+registration have in-process IP/account throttling; distributed deployments
+should use a shared rate-limit store.
+
+Run relevant validation:
+
+```powershell
+cd backend
+npm.cmd test
+# Set TEST_DATABASE_URL to include the PostgreSQL-backed HTTP integration test.
+$env:TEST_DATABASE_URL = "postgres://.../medune_integration"
+$env:DATABASE_URL = $env:TEST_DATABASE_URL
+npm.cmd test
+cd ..\frontend
+npm.cmd run lint
+npm.cmd run build
+cd ..\scripts
+..\.venv\Scripts\python.exe -m unittest test_ingest_pipeline.py
+```
+
 ## Backend Medication Search API
 
 The backend exposes a minimal medication search endpoint for the current MVP:

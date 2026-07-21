@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import process from 'node:process'
 
 // Inside Docker (VITE_USE_POLLING=true) bind all interfaces so the published
 // port is reachable, and poll the filesystem so HMR works across the bind mount

@@ -2,20 +2,23 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
-import { getCurrentUser } from "./utils/auth";
+import { AuthProvider } from "./auth/AuthContext";
+import { useAuth } from "./auth/authContextValue";
 import "./App.css";
 
 // Only let logged-in users see the dashboard.
 // If nobody is logged in, send them to the login page.
 function ProtectedRoute({ children }) {
-  const user = getCurrentUser();
+  const { status, user } = useAuth();
+  if (status === "loading") return <p className="search-note">Checking session…</p>;
   return user ? children : <Navigate to="/" replace />;
 }
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route
@@ -26,8 +29,9 @@ function App() {
             </ProtectedRoute>
           }
         />
-      </Routes>
-    </BrowserRouter>
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
 

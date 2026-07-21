@@ -26,9 +26,12 @@ test("verification reports missing medications and rules clearly", async () => {
       if (sql.includes("information_schema.tables")) {
         return {
           rows: [
+            { table_name: "users" },
             { table_name: "medications" },
             { table_name: "drug_gene_rules" },
             { table_name: "patients" },
+            { table_name: "patient_medications" },
+            { table_name: "user_sessions" },
             { table_name: "pgx_results" },
             { table_name: "risk_results" },
           ],
