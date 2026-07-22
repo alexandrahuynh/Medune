@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import test from "node:test";
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
 
 test("authenticated medication HTTP workflow persists and isolates users", { skip: !databaseUrl }, async () => {
+  const runId = randomUUID();
   const { pool } = await import("./db.js");
   const { createApp } = await import("./app.js");
   await pool.query(`INSERT INTO medications (generic_name, brand_name, drug_class)
@@ -26,8 +28,8 @@ test("authenticated medication HTTP workflow persists and isolates users", { ski
   }
 
   try {
-    const sessionA = await createSession("integration-a@example.com");
-    const sessionB = await createSession("integration-b@example.com");
+    const sessionA = await createSession(`integration-a-${runId}@example.com`);
+    const sessionB = await createSession(`integration-b-${runId}@example.com`);
     const search = await (await request("/api/medications/search?q=clopidogrel")).json();
     const medicationId = search.results[0].id;
     const authHeaders = (session) => ({ Cookie: session.cookie, "X-CSRF-Token": session.csrf });

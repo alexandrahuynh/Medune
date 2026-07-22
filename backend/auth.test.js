@@ -45,6 +45,7 @@ test("login creates a hashed session tied to the account's patient", async () =>
   assert.equal(result.user.patientId, "patient-a");
   assert.ok(result.token.length > 30);
   assert.match(calls[1].sql, /DELETE FROM user_sessions/);
+  assert.match(calls[2].sql, /ON CONFLICT \(user_id\) DO UPDATE/);
   assert.equal(calls[2].values[1], hashToken(result.token));
   assert.notEqual(calls[2].values[1], result.token);
 });
